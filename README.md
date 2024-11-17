@@ -9,6 +9,7 @@ I want to simulate a load balancer's affects on different network conditions, an
 benchmarks for packet delays for a client when considering:
 - Different load balancer algorithms, liike round-robin, weighted round-robin or least-connections.
 - The caching of content for a load balancer when servers may be geographically distant.
+
 Along with that, I want to explore how a reverse proxy can minimize DDoS attacks and examine the
 loads on servers with and without one.
 

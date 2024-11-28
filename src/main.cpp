@@ -23,6 +23,8 @@ void ensure_controlled_exit();
 // ------
 
 int main() {
+    using namespace ls;
+
     ensure_controlled_exit();
 
     Server server{port, connections_accepted};

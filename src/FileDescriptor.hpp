@@ -2,8 +2,23 @@
 
 #include <unistd.h>
 
-struct FileDescriptor {
-    ~FileDescriptor() { close(fd); }
+namespace ls {
 
-    int fd;
+struct FileDescriptor {
+    FileDescriptor(int fd);
+    ~FileDescriptor();
+
+    // We don't want to copy file descriptors, to prevent closing twice
+    FileDescriptor(FileDescriptor &) = delete;
+    FileDescriptor operator=(FileDescriptor &) = delete;
+
+    FileDescriptor(FileDescriptor &&) = default;
+    FileDescriptor &operator=(FileDescriptor &&) = default;
+
+    [[nodiscard]] inline int fd() const { return _fd; };
+
+private:
+    int _fd;
 };
+
+} // namespace ls

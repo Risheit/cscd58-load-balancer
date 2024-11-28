@@ -32,14 +32,14 @@ int main(int argc, char **argv) {
     }
 
     LoadBalancer lb{port, connections_accepted, quit};
-
+    int weight = 1;
     for (int i = 1; i < argc; i += 2) {
         std::string forward_ip = argv[i];
         int forward_port = std::stod(argv[i + 1]);
-        lb.addConnections(forward_ip, forward_port);
+        lb.addConnections(forward_ip, forward_port, {.weight = weight++});
     }
 
-    lb.startRoundRobin();
+    lb.startWeightedRoundRobin();
 
     return 0;
 }

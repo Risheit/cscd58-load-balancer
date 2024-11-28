@@ -7,8 +7,8 @@ SET(COMPILATION_FILES
         "FileDescriptor.hpp"
         "FileDescriptor.cpp"
         "Sockets.hpp"
-        "TcpConnection.hpp"
-        "TcpConnection.cpp"
+        "TcpClient.hpp"
+        "TcpClient.cpp"
 )
 
 add_executable(${CMAKE_PROJECT_NAME} ${COMPILATION_FILES})

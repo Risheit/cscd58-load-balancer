@@ -10,7 +10,6 @@
 
 namespace ls {
 
-constexpr int max_msg_chars = 8192;
 
 Server::Server(int port, int connections_accepted) :
     _port(port), _connections_accepted(connections_accepted), _socket(sockets::createSocket()) {
@@ -66,20 +65,9 @@ bool Server::tryAccept(int timeout, std::function<std::string(std::string)> onAc
         throw std::runtime_error(std::strerror(errno));
     }
 
-    std::string received_str;
-
-    while (true) {
-        std::array<char, max_msg_chars> received_raw;
-        int len = recv(remote_socket.fd(), received_raw.data(), sizeof(received_raw.data()), 0);
-        if (len <= 0) { break; }
-
-        received_str.append(received_raw.data(), len);
-        std::cout << " Length: " << len << "\n";
-    };
-
-    std::cout << "Final:\n" << received_str << "\n";
-
+    auto received_str = sockets::collect(remote_socket);
     auto response = onAccept(received_str);
+
     code = send(remote_socket.fd(), response.c_str(), response.length(), 0);
     if (code < 0) {
         perror("send::tryAccept()");

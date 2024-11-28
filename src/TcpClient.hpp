@@ -6,10 +6,10 @@
 
 namespace ls {
 
-class TcpConnection {
+class TcpClient {
 public:
-    TcpConnection(std::string ip, int port = 80);
-    void write(std::string data);
+    TcpClient(std::string ip, int port = 80);
+    sockets::data query(std::string data);
 
 private:
     const sockets::Socket _socket;

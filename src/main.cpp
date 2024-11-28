@@ -3,10 +3,9 @@
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
-#include <sstream>
-#include <thread>
+#include <string>
 #include "Server.hpp"
-#include "TcpConnection.hpp"
+#include "TcpClient.hpp"
 
 using millis = int;
 
@@ -31,24 +30,23 @@ int main(int argc, char **argv) {
 
     ensure_controlled_exit();
 
-    if (argc < 2) {
-        std::cerr << "Usage: " << argv[0] << " [ip_addr]\n";
+    if (argc < 3) {
+        std::cerr << "Usage: " << argv[0] << " [ip_addr] [port]\n";
         return EXIT_FAILURE;
     }
 
     Server server{port, connections_accepted};
     std::string forward_ip = argv[1];
+    int forward_port = std::stod(argv[2]);
 
     while (true) {
         if (quit.load()) { break; }
 
-        server.tryAccept(acceptTimeout, [&](auto received) {
-            std::string htmlFile = "<!DOCTYPE html><html lang=\"en\"><body><h1> HOME </h1><p> Hello from your Server "
-                                   ":) </p></body></html>";
-            std::ostringstream ss;
-            ss << "HTTP/1.1 200 OK\nContent-Type: text/html\nContent-Length: " << htmlFile.size() << "\n\n" << htmlFile;
+        server.tryAccept(acceptTimeout, [&](auto client_request) {
+            TcpClient connection{forward_ip, forward_port};
+            const auto server_response = connection.query(client_request);
 
-            return ss.str();
+            return server_response;
         });
     };
 

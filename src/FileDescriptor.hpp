@@ -1,9 +1,10 @@
 #pragma once
 
+#include <string>
 namespace ls {
 
 struct FileDescriptor {
-    FileDescriptor(int fd);
+    FileDescriptor(int fd, std::string name = "fd");
     ~FileDescriptor();
 
     // We don't want to copy file descriptors, to prevent closing twice
@@ -17,6 +18,7 @@ struct FileDescriptor {
 
 private:
     int _fd;
+    std::string _name;
 };
 
 } // namespace ls

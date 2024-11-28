@@ -12,7 +12,8 @@ public:
     sockets::data query(std::string data);
 
 private:
-    sockets::Socket _socket;
+    std::string _ip;
+    int _port;
     sockaddr_in _addr;
 };
 

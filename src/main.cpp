@@ -27,16 +27,19 @@ int main(int argc, char **argv) {
     ensure_controlled_exit();
 
     if (argc < 3) {
-        std::cerr << "Usage: " << argv[0] << " [ip_addr] [port]\n";
+        std::cerr << "Usage: " << argv[0] << " [ip_addr1] [port1] [ip_addr2] [ip_addr2] ...\n";
         return EXIT_FAILURE;
     }
 
-    std::string forward_ip = argv[1];
-    int forward_port = std::stod(argv[2]);
-
     LoadBalancer lb{port, connections_accepted, quit};
-    lb.addConnections(forward_ip, forward_port);
-    lb.start();
+
+    for (int i = 1; i < argc; i += 2) {
+        std::string forward_ip = argv[i];
+        int forward_port = std::stod(argv[i + 1]);
+        lb.addConnections(forward_ip, forward_port);
+    }
+
+    lb.startRoundRobin();
 
     return 0;
 }

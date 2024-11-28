@@ -56,7 +56,7 @@ bool Server::tryAccept(int timeout, std::function<std::string(std::string)> onAc
 
     std::cout << "Connected~\n";
 
-    sockets::Socket remote_socket{accept(connection.fd, sockets::asGeneric(&_addr), &_addr_len)};
+    sockets::Socket remote_socket{accept(connection.fd, sockets::asGeneric(&_addr), &_addr_len), "remote"};
 
     if (remote_socket.fd() < 0) {
         perror("accept::tryAccept()");

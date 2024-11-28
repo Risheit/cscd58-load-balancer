@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include <string>
+#include <sys/types.h>
 #include <vector>
 #include "Server.hpp"
 #include "TcpClient.hpp"
@@ -16,7 +17,7 @@ class LoadBalancer {
 public:
     LoadBalancer(int port, int connections_accepted, const std::atomic_bool &quitSignal);
     void addConnections(std::string ip, int port = 80);
-    void start();
+    void startRoundRobin();
 
 private:
     Server _proxy;

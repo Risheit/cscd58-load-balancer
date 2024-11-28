@@ -1,4 +1,5 @@
 #pragma once
+#include <functional>
 #include <netinet/in.h>
 #include <poll.h>
 #include "Sockets.hpp"
@@ -16,7 +17,7 @@ public:
     Server(Server &&) = delete;
     Server &operator=(Server &&) = delete;
 
-    [[nodiscard]] sockets::data tryAccept(int timeout);
+    bool tryAccept(int timeout, std::function<std::string(std::string)> onAccept);
 
 private:
     const int _port;

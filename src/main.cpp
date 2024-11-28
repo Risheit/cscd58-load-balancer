@@ -2,7 +2,11 @@
 #include <csignal>
 #include <cstdlib>
 #include <cstring>
+#include <iostream>
+#include <sstream>
+#include <thread>
 #include "Server.hpp"
+#include "TcpConnection.hpp"
 
 using millis = int;
 
@@ -22,18 +26,30 @@ void ensure_controlled_exit();
 
 // ------
 
-int main() {
+int main(int argc, char **argv) {
     using namespace ls;
 
     ensure_controlled_exit();
 
+    if (argc < 2) {
+        std::cerr << "Usage: " << argv[0] << " [ip_addr]\n";
+        return EXIT_FAILURE;
+    }
+
     Server server{port, connections_accepted};
+    std::string forward_ip = argv[1];
 
     while (true) {
         if (quit.load()) { break; }
 
-        auto data = server.tryAccept(acceptTimeout);
-        if (!data.has_value()) { continue; }
+        server.tryAccept(acceptTimeout, [&](auto received) {
+            std::string htmlFile = "<!DOCTYPE html><html lang=\"en\"><body><h1> HOME </h1><p> Hello from your Server "
+                                   ":) </p></body></html>";
+            std::ostringstream ss;
+            ss << "HTTP/1.1 200 OK\nContent-Type: text/html\nContent-Length: " << htmlFile.size() << "\n\n" << htmlFile;
+
+            return ss.str();
+        });
     };
 
     return 0;

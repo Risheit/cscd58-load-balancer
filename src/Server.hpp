@@ -1,10 +1,17 @@
 #pragma once
-#include <functional>
+#include <map>
+#include <memory>
 #include <netinet/in.h>
+#include <optional>
 #include <poll.h>
 #include "Sockets.hpp"
 
 namespace ls {
+
+struct AcceptData {
+    std::optional<std::string> data;
+    int remoteFd;
+};
 
 class Server {
 public:
@@ -17,12 +24,14 @@ public:
     Server(Server &&) = delete;
     Server &operator=(Server &&) = delete;
 
-    bool tryAccept(int timeout, std::function<std::string(std::string)> onAccept);
+    AcceptData tryAcceptLatest(int timeout);
+    void respond(int remoteFd, std::string response);
 
 private:
     const int _port;
     const int _connections_accepted;
     const sockets::Socket _socket;
+    std::map<int, std::unique_ptr<sockets::Socket>> _remotes;
     sockaddr_in _addr;
     socklen_t _addr_len;
 };

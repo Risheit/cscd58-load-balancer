@@ -7,8 +7,8 @@ struct FileDescriptor {
     FileDescriptor(int fd, std::string name = "fd");
     ~FileDescriptor();
 
+    FileDescriptor(FileDescriptor &) = default; // Required for optional
     // We don't want to copy file descriptors, to prevent closing twice
-    FileDescriptor(FileDescriptor &) = delete;
     FileDescriptor operator=(FileDescriptor &) = delete;
 
     FileDescriptor(FileDescriptor &&) = default;

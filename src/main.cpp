@@ -35,7 +35,7 @@ int main(int argc, char **argv) {
         lb.addConnections(forward_ip, forward_port, {.weight = weight++});
     }
 
-    lb.startWeightedRoundRobin();
+    lb.startRoundRobin();
 
     return 0;
 }

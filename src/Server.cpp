@@ -3,6 +3,7 @@
 #include <cassert>
 #include <cstring>
 #include <iostream>
+#include <memory>
 #include <sys/socket.h>
 #include "Sockets.hpp"
 
@@ -10,7 +11,7 @@ namespace ls {
 
 
 Server::Server(int port, int connections_accepted) :
-    _port(port), _connections_accepted(connections_accepted), _socket(sockets::createSocket()) {
+    _port(port), _connections_accepted(connections_accepted), _socket({sockets::createSocket(), "server"}) {
     assert(port > 0);
     assert(connections_accepted > 0);
 
@@ -45,34 +46,44 @@ Server::Server(int port, int connections_accepted) :
     }
 }
 
-bool Server::tryAccept(int timeout, std::function<std::string(std::string)> onAccept) {
+AcceptData Server::tryAcceptLatest(int timeout) {
+    using namespace sockets;
+
     constexpr int num_sockets = 1;
 
     int code;
 
     pollfd connection{.fd = _socket.fd(), .events = POLLIN};
     code = poll(&connection, num_sockets, timeout);
-    if (code <= 0) { return false; }
+    if (code <= 0) { return {.remoteFd = -1}; }
 
     std::cout << "Connected~\n";
 
-    sockets::Socket remote_socket{accept(connection.fd, sockets::asGeneric(&_addr), &_addr_len), "remote"};
+    const int remoteFd = accept(connection.fd, asGeneric(&_addr), &_addr_len);
 
-    if (remote_socket.fd() < 0) {
+    if (remoteFd < 0) {
         perror("accept::tryAccept()");
         throw std::runtime_error(std::strerror(errno));
     }
 
-    auto received_str = sockets::collect(remote_socket);
-    auto response = onAccept(received_str);
+    const auto inserted = _remotes.insert_or_assign(remoteFd, std::make_unique<Socket>(remoteFd, "remote"));
+    const auto &remote = _remotes.at(remoteFd);
 
-    code = send(remote_socket.fd(), response.c_str(), response.length(), 0);
+    const auto client_request = collect(*remote);
+
+    return {client_request, remoteFd};
+}
+
+void Server::respond(int remoteFd, std::string response) {
+    const auto &remote = _remotes.at(remoteFd);
+
+    int code = send(remote->fd(), response.c_str(), response.length(), 0);
+    _remotes.erase(remoteFd);
+
     if (code < 0) {
-        perror("send::tryAccept()");
+        perror("send::respond()");
         throw std::runtime_error(std::strerror(errno));
     }
-
-    return true;
 }
 
 } // namespace ls

@@ -1,24 +1,18 @@
 #include "Server.hpp"
 #include <array>
+#include <asm-generic/socket.h>
 #include <cassert>
-#include <cstdio>
+#include <cstring>
 #include <iostream>
-#include <optional>
-#include <stdexcept>
-#include <sys/poll.h>
-#include <unistd.h>
-#include "FileDescriptor.hpp"
+#include <sys/socket.h>
+#include "Sockets.hpp"
 
 namespace ls {
 
-constexpr int max_msg_chars = 2048;
-constexpr int no_flags = 0;
-
-[[nodiscard]] FileDescriptor createSocket() { return {socket(AF_INET, SOCK_STREAM, 0)}; }
+constexpr int max_msg_chars = 10000;
 
 Server::Server(int port, int connections_accepted) :
-    _port(port), _connections_accepted(connections_accepted), _socket(std::move(createSocket())) {
-    // Assertions
+    _port(port), _connections_accepted(connections_accepted), _socket(sockets::createSocket()) {
     assert(port > 0);
     assert(connections_accepted > 0);
 
@@ -31,28 +25,30 @@ Server::Server(int port, int connections_accepted) :
     _addr.sin_port = htons(port);
     socklen_t addr_len = sizeof(_addr);
 
-    int optval; // Throw this away
+    int optval; // This is thrown away
     code = setsockopt(_socket.fd(), SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &optval, sizeof(optval));
+    timeval timeout{.tv_sec = 0, .tv_usec = 1};
+    code = setsockopt(_socket.fd(), SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
     if (code != 0) {
         perror("setsockopt::Server()");
-        throw std::runtime_error("failed to create server");
+        throw std::runtime_error(std::strerror(errno));
     }
 
     auto generic_addr = reinterpret_cast<sockaddr *>(&_addr);
     code = bind(_socket.fd(), generic_addr, addr_len);
     if (code != 0) {
         perror("bind::Server()");
-        throw std::runtime_error("failed to create server");
+        throw std::runtime_error(std::strerror(errno));
     }
 
     code = listen(_socket.fd(), connections_accepted);
     if (code != 0) {
         perror("listen::Server()");
-        throw std::runtime_error("failed to create server");
+        throw std::runtime_error(std::strerror(errno));
     }
 }
 
-[[nodiscard]] socket_data Server::tryAccept(int timeout) {
+[[nodiscard]] sockets::data Server::tryAccept(int timeout) {
     constexpr int num_sockets = 1;
 
     pollfd connection{.fd = _socket.fd(), .events = POLLIN};
@@ -62,23 +58,25 @@ Server::Server(int port, int connections_accepted) :
     std::cout << "Connected~\n";
 
     auto generic_addr = reinterpret_cast<sockaddr *>(&_addr);
-    FileDescriptor remote_socket{accept(connection.fd, generic_addr, &_addr_len)};
+    sockets::Socket remote_socket{accept(connection.fd, generic_addr, &_addr_len)};
 
     if (remote_socket.fd() < 0) {
         perror("accept::tryAccept()");
-        throw std::runtime_error("failed to accept remote connection");
+        throw std::runtime_error(std::strerror(errno));
     }
 
-    std::array<char, max_msg_chars> received_raw;
     std::string received_str;
-    int len;
 
-    do {
-        len = recv(remote_socket.fd(), received_raw.data(), sizeof(received_raw), no_flags);
-        received_str = std::string{received_raw.data()};
-        std::cout << " Length: " << len << "\n" << received_str << "\n";
-    } while (len > 0);
+    while (true) {
+        std::array<char, max_msg_chars> received_raw;
+        int len = recv(remote_socket.fd(), received_raw.data(), sizeof(received_raw.data()), 0);
+        if (len <= 0) { break; }
 
+        received_str.append(received_raw.data());
+        std::cout << " Length: " << len << "\n";
+    };
+
+    std::cout << "Final:\n" << received_str << "\n";
     return received_str;
 }
 

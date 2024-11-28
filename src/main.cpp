@@ -7,8 +7,8 @@
 using millis = int;
 
 constexpr int connections_accepted = 5;
-constexpr int port = 8888;
-constexpr millis acceptTimeout = 1;
+constexpr int port = 40192;
+constexpr millis acceptTimeout = 10;
 
 // Signal handling:
 // https://stackoverflow.com/questions/4250013/is-destructor-called-if-sigint-or-sigstp-issued

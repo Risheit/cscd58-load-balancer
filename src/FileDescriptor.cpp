@@ -1,5 +1,6 @@
 #include "FileDescriptor.hpp"
 #include <stdexcept>
+#include <unistd.h>
 
 namespace ls {
 

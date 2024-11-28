@@ -1,14 +1,9 @@
 #pragma once
 #include <netinet/in.h>
-#include <optional>
 #include <poll.h>
-#include <string>
-#include "FileDescriptor.hpp"
+#include "Sockets.hpp"
 
 namespace ls {
-
-using socket_data = std::optional<std::string>;
-using Socket = FileDescriptor;
 
 class Server {
 public:
@@ -21,12 +16,12 @@ public:
     Server(Server &&) = delete;
     Server &operator=(Server &&) = delete;
 
-    [[nodiscard]] socket_data tryAccept(int timeout);
+    [[nodiscard]] sockets::data tryAccept(int timeout);
 
 private:
     const int _port;
     const int _connections_accepted;
-    const Socket _socket;
+    const sockets::Socket _socket;
     sockaddr_in _addr;
     socklen_t _addr_len;
 };

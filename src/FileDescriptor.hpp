@@ -1,7 +1,5 @@
 #pragma once
 
-#include <unistd.h>
-
 namespace ls {
 
 struct FileDescriptor {

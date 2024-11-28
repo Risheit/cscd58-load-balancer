@@ -12,7 +12,7 @@ public:
     sockets::data query(std::string data);
 
 private:
-    const sockets::Socket _socket;
+    sockets::Socket _socket;
     sockaddr_in _addr;
 };
 

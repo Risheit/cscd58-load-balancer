@@ -8,7 +8,7 @@ namespace ls {
 
 class Server {
 public:
-    Server(int port, int connections_accpted);
+    Server(int port, int connections_accepted);
     ~Server() = default;
 
     // No copying or moving a server

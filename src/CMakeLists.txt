@@ -9,6 +9,8 @@ SET(COMPILATION_FILES
         "Sockets.hpp"
         "TcpClient.hpp"
         "TcpClient.cpp"
+        "LoadBalancer.hpp"
+        "LoadBalancer.cpp"
 )
 
 add_executable(${CMAKE_PROJECT_NAME} ${COMPILATION_FILES})

@@ -4,19 +4,15 @@
 #include <cstring>
 #include <iostream>
 #include <string>
-#include "Server.hpp"
-#include "TcpClient.hpp"
-
-using millis = int;
+#include "LoadBalancer.hpp"
 
 constexpr int connections_accepted = 5;
 constexpr int port = 40192;
-constexpr millis acceptTimeout = 10;
 
 // Signal handling:
 // https://stackoverflow.com/questions/4250013/is-destructor-called-if-sigint-or-sigstp-issued
-std::atomic<bool> panic{false};
-std::atomic<bool> quit{false}; // signal flag
+std::atomic_bool panic{false};
+std::atomic_bool quit{false}; // signal flag
 
 // --- Function Declarations ---
 
@@ -35,20 +31,12 @@ int main(int argc, char **argv) {
         return EXIT_FAILURE;
     }
 
-    Server server{port, connections_accepted};
     std::string forward_ip = argv[1];
     int forward_port = std::stod(argv[2]);
 
-    while (true) {
-        if (quit.load()) { break; }
-
-        server.tryAccept(acceptTimeout, [&](auto client_request) {
-            TcpClient connection{forward_ip, forward_port};
-            const auto server_response = connection.query(client_request);
-
-            return server_response;
-        });
-    };
+    LoadBalancer lb{port, connections_accepted, quit};
+    lb.addConnections(forward_ip, forward_port);
+    lb.start();
 
     return 0;
 }

@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <cstring>
 #include <netinet/in.h>
+#include <string>
 #include <sys/socket.h>
 #include "Sockets.hpp"
 

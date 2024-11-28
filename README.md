@@ -48,7 +48,7 @@ cmake --build build/
 
 The following are a planned list of possible features.
 
-- [ ] (Weighted) Round-robin load balancing
+- [x] (Weighted) Round-robin load balancing
 - [ ] Least-connections load balancing
 - [ ] Sticky sessions for load balancing
 - [ ] Caching sessions

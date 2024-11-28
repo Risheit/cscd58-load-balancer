@@ -1,0 +1,11 @@
+Diagnostics:
+  ClangTidy:
+    Add:
+      - clang-analyzer-* 
+      - modernize-*
+    Remove: modernize-use-trailing-return-type
+    CheckOptions:
+      readability-identifier-naming.ConstantCase: lower_case
+      readability-identifier-naming.FunctionCase: lower_case
+      readability-identifier-naming.VariableCase: lower_case
+    FastCheckFilter: None

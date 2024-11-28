@@ -1,10 +1,15 @@
 #include "Server.hpp"
+#include <array>
 #include <cassert>
 #include <cstdio>
 #include <iostream>
 #include <stdexcept>
 #include <sys/poll.h>
 #include <unistd.h>
+
+constexpr int NUM_SOCKETS = 1;
+constexpr int max_msg_chars = 2048;
+constexpr int no_flags = 0;
 
 Server::Server(int _port, int connections_accepted) : port(_port), connections_accepted(connections_accepted) {
     assert(_port > 0);
@@ -48,9 +53,9 @@ Server::Server(int _port, int connections_accepted) : port(_port), connections_a
 Server::~Server() { close(connection.fd); }
 
 [[nodiscard]] int Server::tryAccept(int timeout) {
-    constexpr int num_sockets = 1;
+    int code;
 
-    int code = poll(&connection, num_sockets, timeout);
+    code = poll(&connection, NUM_SOCKETS, timeout);
     if (code <= 0) { return -1; }
     std::cout << "Connected~\n";
 
@@ -62,6 +67,9 @@ Server::~Server() { close(connection.fd); }
         close(remote_sockfd);
         throw std::runtime_error("failed to accept remote connection");
     }
+
+    std::array<char, max_msg_chars> received_data;
+    code = recv(remote_sockfd, received_data.data(), sizeof(received_data), no_flags);
 
     close(remote_sockfd);
     return 0;

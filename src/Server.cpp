@@ -3,6 +3,7 @@
 #include <cassert>
 #include <cstdio>
 #include <iostream>
+#include <optional>
 #include <stdexcept>
 #include <sys/poll.h>
 #include <unistd.h>
@@ -54,10 +55,11 @@ Server::Server(int port, int connections_accepted) : port(port), connections_acc
     }
 }
 
-[[nodiscard]] int Server::tryAccept(int timeout) {
+[[nodiscard]] socket_data Server::tryAccept(int timeout) {
     pollfd connection{sockfd.fd, POLLIN};
     int code = poll(&connection, NUM_SOCKETS, timeout);
-    if (code <= 0) { return -1; }
+    if (code <= 0) { return std::nullopt; }
+
     std::cout << "Connected~\n";
 
     auto generic_addr = reinterpret_cast<sockaddr *>(&addr);
@@ -70,9 +72,13 @@ Server::Server(int port, int connections_accepted) : port(port), connections_acc
     }
 
     std::array<char, max_msg_chars> received_raw;
-    int len = recv(remote_sockfd.fd, received_raw.data(), sizeof(received_raw), no_flags);
-    std::string received_str{received_raw.data()};
-    std::cout << " Length: " << len << "\n" << received_str << "\n";
+    std::string received_str;
+    int len;
+    do {
+        len = recv(remote_sockfd.fd, received_raw.data(), sizeof(received_raw), no_flags);
+        received_str = std::string{received_raw.data()};
+        std::cout << " Length: " << len << "\n" << received_str << "\n";
+    } while (len > 0);
 
-    return 0;
+    return received_str;
 }

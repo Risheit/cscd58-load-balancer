@@ -8,39 +8,45 @@ using millis = int;
 
 constexpr int connections_accepted = 5;
 constexpr int port = 8888;
-constexpr millis acceptTimeout = 1000;
+constexpr millis acceptTimeout = 1;
 
 // Signal handling:
 // https://stackoverflow.com/questions/4250013/is-destructor-called-if-sigint-or-sigstp-issued
-std::atomic<bool> hard_quit{false};
+std::atomic<bool> panic{false};
 std::atomic<bool> quit{false}; // signal flag
+
+// --- Function Declarations ---
+
 void got_signal(int);
 void ensure_controlled_exit();
+
+// ------
 
 int main() {
     ensure_controlled_exit();
 
     Server server{port, connections_accepted};
 
-    int code = 0;
-    do {
+    while (true) {
         if (quit.load()) { break; }
 
-        code = server.tryAccept(acceptTimeout);
-        // std::cout << "Waiting\n";
-    } while (true);
+        auto data = server.tryAccept(acceptTimeout);
+        if (!data.has_value()) { continue; }
+    };
 
     return 0;
 }
+
+// --- Function Definitions ---
 
 void got_signal(int) {
     // Signal handler function.
     // Set the flag and return.
     // Never do real work inside this function.
     // See also: man 7 signal-safety
-    if (hard_quit) { exit(EXIT_FAILURE); }
+    if (panic) { exit(EXIT_FAILURE); }
     quit.store(true);
-    hard_quit.store(true);
+    panic.store(true);
 }
 
 void ensure_controlled_exit() {

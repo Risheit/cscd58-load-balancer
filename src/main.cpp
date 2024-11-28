@@ -2,7 +2,6 @@
 #include <csignal>
 #include <cstdlib>
 #include <cstring>
-#include <iostream>
 #include <string>
 #include "LoadBalancer.hpp"
 
@@ -26,10 +25,7 @@ int main(int argc, char **argv) {
 
     ensure_controlled_exit();
 
-    if (argc < 3) {
-        std::cerr << "Usage: " << argv[0] << " [ip_addr1] [port1] [ip_addr2] [ip_addr2] ...\n";
-        return EXIT_FAILURE;
-    }
+    // std::cerr << "Usage: " << argv[0] << " [ip_addr1] [port1] [ip_addr2] [ip_addr2] ...\n";
 
     LoadBalancer lb{port, connections_accepted, quit};
     int weight = 1;

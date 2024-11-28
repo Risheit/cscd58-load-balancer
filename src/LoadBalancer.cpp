@@ -2,6 +2,7 @@
 #include <iostream>
 #include <iterator>
 #include <string>
+#include "Http.hpp"
 #include "TcpClient.hpp"
 
 
@@ -22,6 +23,17 @@ void LoadBalancer::startRoundRobin() {
         if (_quitSignal.load()) { break; }
 
         _proxy.tryAccept(acceptTimeout, [&](auto client_request) {
+            if (_connections.size() == 0) {
+                const http::Response response{.code = 503,
+                                              .status_text = "Service Unavailable",
+                                              .headers = {{"Content-Type", "text/html"}},
+                                              .body = http::getNoConnectionsResponse()};
+
+                const auto responseString = response.construct();
+                std::cerr << "(error): No connected servers to query\n";
+                return responseString;
+            }
+
             std::cerr << "(debug): querying actual server\n";
             const auto server_response = current->client.query(client_request);
 
@@ -40,6 +52,18 @@ void LoadBalancer::startWeightedRoundRobin() {
         if (_quitSignal.load()) { break; }
 
         _proxy.tryAccept(acceptTimeout, [&](auto client_request) {
+            if (_connections.size() == 0) {
+                const http::Response response{.code = 503,
+                                              .status_text = "Service Unavailable",
+                                              .headers = {{"Content-Type", "text/html"}},
+                                              .body = http::getNoConnectionsResponse()};
+
+                const auto responseString = response.construct();
+                std::cerr << "(error): No connected servers to query\n";
+                return responseString;
+            }
+
+
             auto [client, metadata] = *current;
 
             std::cerr << "(debug): querying actual server (weight: " << metadata.weight << ")\n";

@@ -10,7 +10,7 @@ namespace ls {
 
 struct AcceptData {
     std::optional<std::string> data;
-    int remoteFd;
+    int remote_fd;
 };
 
 class Server {
@@ -25,7 +25,7 @@ public:
     Server &operator=(Server &&) = delete;
 
     AcceptData tryAcceptLatest(int timeout);
-    void respond(int remoteFd, std::string response);
+    bool respond(int remoteFd, std::string response);
 
 private:
     const int _port;

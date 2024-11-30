@@ -1,10 +1,13 @@
 #include "Server.hpp"
 #include <asm-generic/socket.h>
 #include <cassert>
+#include <cerrno>
 #include <cstring>
 #include <iostream>
 #include <memory>
 #include <sys/socket.h>
+#include <sys/types.h>
+#include <thread>
 #include "Sockets.hpp"
 
 namespace ls {
@@ -55,7 +58,7 @@ AcceptData Server::tryAcceptLatest(int timeout) {
 
     pollfd connection{.fd = _socket.fd(), .events = POLLIN};
     code = poll(&connection, num_sockets, timeout);
-    if (code <= 0) { return {.remoteFd = -1}; }
+    if (code <= 0) { return {.remote_fd = -1}; }
 
     std::cout << "Connected~\n";
 
@@ -68,22 +71,31 @@ AcceptData Server::tryAcceptLatest(int timeout) {
 
     const auto inserted = _remotes.insert_or_assign(remoteFd, std::make_unique<Socket>(remoteFd, "remote"));
     const auto &remote = _remotes.at(remoteFd);
-
     const auto client_request = collect(*remote);
 
     return {client_request, remoteFd};
 }
 
-void Server::respond(int remoteFd, std::string response) {
-    const auto &remote = _remotes.at(remoteFd);
-
-    int code = send(remote->fd(), response.c_str(), response.length(), 0);
-    _remotes.erase(remoteFd);
-
-    if (code < 0) {
-        perror("send::respond()");
-        throw std::runtime_error(std::strerror(errno));
+bool Server::respond(int remote_fd, std::string response) {
+    std::cerr << "Sending data...\n";
+    std::cerr << remote_fd << "--" << response << "\n###\n";
+    ssize_t length_left = response.length();
+    ssize_t length_sent = 0;
+    while (length_sent != response.length()) {
+        int bytes_sent = send(remote_fd, response.c_str() + length_sent, length_left, 0);
+        if (bytes_sent < 0) {
+            perror("send::respond()");
+            throw std::runtime_error(std::strerror(errno));
+        }
+        length_sent += bytes_sent;
+        length_left -= bytes_sent;
     }
+
+
+    std::cerr << "Erasing remoteFd\n";
+    const auto &remote = _remotes.at(remote_fd);
+    _remotes.erase(remote_fd);
+    return true;
 }
 
 } // namespace ls

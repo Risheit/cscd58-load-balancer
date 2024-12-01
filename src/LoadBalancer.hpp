@@ -1,6 +1,7 @@
 #pragma once
 
 #include <atomic>
+#include <chrono>
 #include <future>
 #include <shared_mutex>
 #include <string>
@@ -12,12 +13,19 @@
 
 namespace ls {
 
+using clock = std::chrono::system_clock;
+
+constexpr int accept_timout_ms = 10;
+
 struct Metadata {
-    inline static Metadata makeDefault() { return {.weight = 1, .id = -1}; }
+    inline static Metadata makeDefault() {
+        return {.weight = 1, .id = -1, .last_refreshed = std::chrono::system_clock::now()};
+    }
 
 public:
     int weight;
     int id;
+    clock::time_point last_refreshed;
 };
 
 struct Connection {
@@ -28,31 +36,47 @@ struct Connection {
 
 struct TransactionResult {
     int socket_fd;
-    const sockets::data data;
+    sockets::data data;
+    Connection &connection;
+    std::shared_mutex &mutex;
 };
 
-using Transaction = std::future<TransactionResult>;
-constexpr int accept_timout_ms = 10;
+struct Transaction {
+    std::future<TransactionResult> transaction;
+    clock::time_point created;
+};
 
+struct CacheEntry {
+    sockets::data data;
+    clock::time_point created;
+};
 
 class LoadBalancer {
 public:
+    enum class Strategy { WEIGHTED_ROUND_ROBIN, LEAST_CONNECTIONS };
+
     LoadBalancer(int port, int connections_accepted, const std::atomic_bool &quitSignal);
     void addConnections(std::string ip, int port = 80, Metadata metadata = Metadata::makeDefault());
-    void startWeightedRoundRobin();
-    void startLeastConnections();
+
+
+    void use(Strategy strategy);
+    void start();
 
 private:
-    void resolveFinishedTransactions(std::vector<Transaction> &transactions);
     AcceptData checkForNewQueries();
-    void createTransaction(std::vector<Transaction> &transactions, Connection &connection,
-                           const AcceptData &client_request);
+    void resolveFinishedTransactions();
+    void createTransaction(Connection &connection, const AcceptData &client_request);
+
+    void startWeightedRoundRobin();
+    void startLeastConnections();
 
 private:
     Server _proxy;
     std::vector<Connection> _connections;
     std::shared_mutex _connections_mutex;
     const std::atomic_bool &_quit_signal;
+    std::vector<Transaction> _transactions;
+    Strategy _strategy = Strategy::WEIGHTED_ROUND_ROBIN;
 };
 
 } // namespace ls

@@ -29,11 +29,33 @@ void LoadBalancer::addConnections(std::string ip, int port, Metadata metadata) {
     std::cerr << "(info) Added a new server: (id: " << metadata.id << ", weight: " << metadata.weight << ")\n";
 }
 
-TransactionResult queryClient(std::shared_mutex &mutex, Connection &connection, const AcceptData &client_request) {
+void LoadBalancer::use(Strategy strategy) {
+    std::cerr << "(info) load balancer is set to ";
+    if (strategy == Strategy::WEIGHTED_ROUND_ROBIN) {
+        std::cerr << "WEIGHTED ROUND ROBIN";
+    } else if (strategy == Strategy::LEAST_CONNECTIONS) {
+        std::cerr << "LEAST CONNECTIONS";
+    } else {
+        std::cerr << "UNKNOWN";
+    }
+    std::cerr << "\n";
+    _strategy = strategy;
+}
+
+void LoadBalancer::start() {
+
+    switch (_strategy) {
+    case Strategy::WEIGHTED_ROUND_ROBIN: startWeightedRoundRobin(); break;
+    case Strategy::LEAST_CONNECTIONS: startLeastConnections(); break;
+    }
+}
+
+TransactionResult queryClient(std::shared_mutex &mutex, Connection &connection,
+                              const AcceptData &client_request) noexcept {
     try {
         const auto &[data, remote_fd] = client_request;
 
-        if (!data.has_value()) { return {client_request.remote_fd, ""}; }
+        if (!data.has_value()) { return {client_request.remote_fd, "", connection, mutex}; }
 
         mutex.lock();
         auto &[client, metadata, ongoing_transactions] = connection;
@@ -45,27 +67,32 @@ TransactionResult queryClient(std::shared_mutex &mutex, Connection &connection, 
         ongoing_transactions--;
         mutex.unlock();
 
-        return {client_request.remote_fd, response};
+        return {client_request.remote_fd, response, connection, mutex};
     } catch (std::runtime_error e) { perror("queryClient::LoadBalancer"); }
 
-    return {.socket_fd = -1};
+    return {-1, "", connection, mutex};
 }
 
-void LoadBalancer::resolveFinishedTransactions(std::vector<Transaction> &transactions) {
+void LoadBalancer::resolveFinishedTransactions() {
     using namespace std::chrono_literals;
 
-    for (auto &transaction : transactions) {
+    for (auto &[transaction, created] : _transactions) {
         if (!transaction.valid()) { continue; }
 
         const auto state = transaction.wait_for(10ms);
         if (state != std::future_status::ready) { continue; }
 
-        const auto [remote_fd, response_string] = transaction.get();
+        const auto [remote_fd, response_string, connection, mutex] = transaction.get();
+
+        // Update Server freshness
+        mutex.lock();
+
+
         _proxy.respond(remote_fd, response_string);
     }
 
-    const auto is_transaction_complete = [](const Transaction &transaction) { return !transaction.valid(); };
-    std::remove_if(transactions.begin(), transactions.end(), is_transaction_complete);
+    const auto is_transaction_complete = [](const Transaction &t) { return !t.transaction.valid(); };
+    std::remove_if(_transactions.begin(), _transactions.end(), is_transaction_complete);
 }
 
 AcceptData LoadBalancer::checkForNewQueries() {
@@ -90,35 +117,33 @@ AcceptData LoadBalancer::checkForNewQueries() {
     return client_request;
 }
 
-void LoadBalancer::createTransaction(std::vector<Transaction> &transactions, Connection &connection,
-                                     const AcceptData &client_request) {
+void LoadBalancer::createTransaction(Connection &connection, const AcceptData &client_request) {
     std::cerr << "(debug) creating a new transaction on server " << connection.metadata.id
               << ". Number of connections:" << connection.ongoing_transactions << "\n";
 
     // Creates a new thread to query the server
     auto transaction = std::async(std::launch::async, &ls::queryClient, std::ref(_connections_mutex),
                                   std::ref(connection), client_request);
-    transactions.push_back(std::move(transaction));
+    clock::time_point s;
+    _transactions.push_back({std::move(transaction), clock::now()});
 }
 
 void LoadBalancer::startWeightedRoundRobin() {
-    std::vector<Transaction> transactions;
-
     _connections_mutex.lock_shared();
-    auto current = _connections.begin();
+    static auto current = _connections.begin();
     _connections_mutex.unlock_shared();
 
-    int times_connected = 0;
+    static int times_connected = 0;
 
     while (true) {
         if (_quit_signal.load()) { break; }
 
-        resolveFinishedTransactions(transactions);
+        resolveFinishedTransactions();
 
         const auto client_request = checkForNewQueries();
         if (!client_request.data.has_value()) { continue; }
 
-        createTransaction(transactions, *current, client_request);
+        createTransaction(*current, client_request);
 
         _connections_mutex.lock_shared();
         times_connected++;
@@ -132,14 +157,10 @@ void LoadBalancer::startWeightedRoundRobin() {
 }
 
 void LoadBalancer::startLeastConnections() {
-    std::vector<Transaction> transactions;
-
-    int times_connected = 0;
-
     while (true) {
         if (_quit_signal.load()) { break; }
 
-        resolveFinishedTransactions(transactions);
+        resolveFinishedTransactions();
 
         const auto client_request = checkForNewQueries();
         if (!client_request.data.has_value()) { continue; }
@@ -153,7 +174,7 @@ void LoadBalancer::startLeastConnections() {
         }
         _connections_mutex.unlock_shared();
 
-        createTransaction(transactions, least_used_connection, client_request);
+        createTransaction(least_used_connection, client_request);
     }
 }
 

@@ -1,6 +1,7 @@
-# Taken and modified from https://gist.github.com/bradmontgomery/2219997
-
 #!/usr/bin/env python
+
+# The original version of this server is from https://gist.github.com/bradmontgomery/2219997
+
 """
 Very simple HTTP server in python (Updated for Python 3.7)
 
@@ -43,7 +44,7 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.    
 
 """
-import argparse
+from argparse import ArgumentParser
 from functools import partial
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from time import sleep
@@ -65,7 +66,7 @@ class S(BaseHTTPRequestHandler):
 
         """
         sleep(self.speed)
-        content = f"<html><body><h1>{message}</h1></body></html>"
+        content = f"<html><body><h1>{message}</h1></body></html>\n"
         return content.encode("utf8")  # NOTE: must return a bytes object!
 
     def do_GET(self):
@@ -80,7 +81,7 @@ class S(BaseHTTPRequestHandler):
         self._set_headers()
         self.wfile.write(self._html("POST!"))
 
-def run(server_class=HTTPServer, handler_class=S, addr="localhost", port=8000):
+def run(server_class=HTTPServer, handler_class=S, addr="0.0.0.0", port=80):
     server_address = (addr, port)
     httpd = server_class(server_address, handler_class)
 
@@ -90,18 +91,18 @@ def run(server_class=HTTPServer, handler_class=S, addr="localhost", port=8000):
 
 if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser(description="Run a simple HTTP server")
+    parser = ArgumentParser(description="Run a simple HTTP server")
     parser.add_argument(
         "-l",
         "--listen",
-        default="localhost",
+        default="0.0.0.0",
         help="Specify the IP address on which the server listens",
     )
     parser.add_argument(
         "-p",
         "--port",
         type=int,
-        default=8000,
+        default=80,
         help="Specify the port on which the server listens",
     )
     parser.add_argument(

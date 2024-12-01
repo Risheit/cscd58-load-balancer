@@ -62,11 +62,11 @@ AcceptData Server::tryAcceptLatest(int timeout) {
 
     std::cout << "Connected~\n";
 
-    const int remoteFd = accept(connection.fd, asGeneric(&_addr), &_addr_len);
+    const int remoteFd = accept4(connection.fd, asGeneric(&_addr), &_addr_len, 0);
 
     if (remoteFd < 0) {
         perror("accept::tryAccept()");
-        throw std::runtime_error(std::strerror(errno));
+        return {.remote_fd = -1};
     }
 
     const auto inserted = _remotes.insert_or_assign(remoteFd, std::make_unique<Socket>(remoteFd, "remote"));

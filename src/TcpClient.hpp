@@ -9,7 +9,7 @@ namespace ls {
 class TcpClient {
 public:
     TcpClient(std::string ip, int port = 80);
-    sockets::data query(std::string data);
+    [[nodiscard]] sockets::data query(std::string data);
 
 private:
     std::string _ip;

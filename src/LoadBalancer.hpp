@@ -1,6 +1,7 @@
 #pragma once
 
 #include <atomic>
+#include <shared_mutex>
 #include <string>
 #include <sys/types.h>
 #include <vector>
@@ -23,6 +24,7 @@ public:
 struct Connection {
     TcpClient client;
     Metadata metadata;
+    unsigned int ongoing_transactions = 0;
 };
 
 struct QueryResult {
@@ -39,6 +41,7 @@ public:
 private:
     Server _proxy;
     std::vector<Connection> _connections;
+    std::shared_mutex _connections_mutex;
     const std::atomic_bool &_quit_signal;
 };
 

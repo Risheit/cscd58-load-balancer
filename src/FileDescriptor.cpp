@@ -11,7 +11,7 @@ FileDescriptor::FileDescriptor(int fd, std::string name) : _fd(fd), _name(std::m
 
 FileDescriptor::~FileDescriptor() {
     close(_fd);
-    std::cerr << "Closing fd: " << _name << "\n";
+    std::cerr << "(debug) Closing fd: " << _name << "\n";
 }
 
 } // namespace ls

@@ -33,7 +33,6 @@ private:
     const sockets::Socket _socket;
     std::map<int, std::unique_ptr<sockets::Socket>> _remotes;
     sockaddr_in _addr;
-    socklen_t _addr_len;
 };
 
 } // namespace ls

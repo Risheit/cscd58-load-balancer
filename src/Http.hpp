@@ -5,7 +5,7 @@
 
 namespace ls::http {
 
-std::string getNoConnectionsResponse();
+std::string messageHtml(std::string message);
 
 struct Request {
     std::string construct() const;

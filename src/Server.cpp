@@ -3,11 +3,11 @@
 #include <cassert>
 #include <cerrno>
 #include <cstring>
+#include <fcntl.h>
 #include <iostream>
 #include <memory>
 #include <sys/socket.h>
 #include <sys/types.h>
-#include <thread>
 #include "Sockets.hpp"
 
 namespace ls {
@@ -53,7 +53,6 @@ AcceptData Server::tryAcceptLatest(int timeout) {
     using namespace sockets;
 
     constexpr int num_sockets = 1;
-
     int code;
 
     pollfd connection{.fd = _socket.fd(), .events = POLLIN};
@@ -62,12 +61,12 @@ AcceptData Server::tryAcceptLatest(int timeout) {
 
     std::cout << "Connected~\n";
 
-    const int remoteFd = accept4(connection.fd, asGeneric(&_addr), &_addr_len, 0);
+    socklen_t addr_len = sizeof(_addr);
+    const int remoteFd = accept4(connection.fd, asGeneric(&_addr), &addr_len, 0);
 
-    if (remoteFd < 0) {
-        perror("accept::tryAccept()");
-        return {.remote_fd = -1};
-    }
+    // Check if socket is still open
+    const auto flags = fcntl(_socket.fd(), F_GETFL);
+
 
     const auto inserted = _remotes.insert_or_assign(remoteFd, std::make_unique<Socket>(remoteFd, "remote"));
     const auto &remote = _remotes.at(remoteFd);
@@ -77,8 +76,8 @@ AcceptData Server::tryAcceptLatest(int timeout) {
 }
 
 bool Server::respond(int remote_fd, std::string response) {
-    std::cerr << "Sending data...\n";
-    std::cerr << remote_fd << "--" << response << "\n###\n";
+    std::cerr << "(debug) Responding to query with data...\n";
+    // std::cerr << remote_fd << "--" << response << "\n###\n";
     ssize_t length_left = response.length();
     ssize_t length_sent = 0;
     while (length_sent != response.length()) {
@@ -92,7 +91,6 @@ bool Server::respond(int remote_fd, std::string response) {
     }
 
 
-    std::cerr << "Erasing remoteFd\n";
     const auto &remote = _remotes.at(remote_fd);
     _remotes.erase(remote_fd);
     return true;

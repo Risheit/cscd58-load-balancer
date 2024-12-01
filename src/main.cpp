@@ -2,6 +2,7 @@
 #include <csignal>
 #include <cstdlib>
 #include <cstring>
+#include <iostream>
 #include <string>
 #include "LoadBalancer.hpp"
 
@@ -34,7 +35,7 @@ int main(int argc, char **argv) {
         lb.addConnections(forward_ip, forward_port);
     }
 
-    lb.startWeightedRoundRobin();
+    lb.startLeastConnections();
 
     return 0;
 }
@@ -47,6 +48,7 @@ void got_signal(int) {
     // Never do real work inside this function.
     // See also: man 7 signal-safety
     if (panic) { exit(EXIT_FAILURE); }
+    std::cerr << "\n(info): Stopping gracefully... (Ctrl-C again will force exit)\n";
     quit.store(true);
     panic.store(true);
 }

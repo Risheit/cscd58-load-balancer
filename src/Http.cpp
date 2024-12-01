@@ -4,7 +4,7 @@
 
 namespace ls::http {
 
-std::string getNoConnectionsResponse() {
+std::string messageHtml(std::string message) {
     return
         R"(<!DOCTYPE html>
 <html lang="en">
@@ -13,13 +13,12 @@ std::string getNoConnectionsResponse() {
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Document</title>
 </head>
-<body>
-Unable to connect to server
-</body>
+<body>)" +
+        message +
+        R"(</body>
 </html>
 )";
 }
-
 
 std::string Request::construct() const {
     std::string request;

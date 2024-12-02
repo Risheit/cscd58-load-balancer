@@ -24,13 +24,13 @@ sockets::data TcpClient::query(std::string data) {
     code = connect(_socket.fd(), sockets::asGeneric(&_addr), addr_len);
     if (code < 0) {
         perror("connect::query()");
-        return "";
+        return std::nullopt;
     }
 
     code = send(_socket.fd(), data.c_str(), data.length(), 0);
     if (code < 0) {
         perror("send::query()");
-        return "";
+        return std::nullopt;
     }
 
     return sockets::collect(_socket);

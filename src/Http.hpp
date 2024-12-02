@@ -8,7 +8,7 @@ namespace ls::http {
 std::string messageHtml(std::string message);
 
 struct Request {
-    std::string construct() const;
+    [[nodiscard]] std::string construct() const;
 
 public:
     std::string method;
@@ -18,7 +18,7 @@ public:
 };
 
 struct Response {
-    std::string construct() const;
+    [[nodiscard]] std::string construct() const;
 
 public:
     int code;

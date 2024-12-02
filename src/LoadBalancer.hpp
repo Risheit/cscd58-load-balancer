@@ -46,11 +46,6 @@ struct Transaction {
     clock::time_point created;
 };
 
-struct CacheEntry {
-    sockets::data data;
-    clock::time_point created;
-};
-
 class LoadBalancer {
 public:
     enum class Strategy { WEIGHTED_ROUND_ROBIN, LEAST_CONNECTIONS };

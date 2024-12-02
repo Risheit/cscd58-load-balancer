@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <future>
 #include <iostream>
+#include <mutex>
 #include <shared_mutex>
 #include <stdexcept>
 #include <string>
@@ -22,10 +23,10 @@ void LoadBalancer::addConnections(std::string ip, int port, Metadata metadata) {
     static int unique_id = 1;
     if (metadata.id == -1) { metadata.id = unique_id++; }
 
-    _connections_mutex.lock();
-    _connections.push_back({TcpClient{ip, port}, metadata});
-    _connections_mutex.unlock();
-
+    {
+        std::scoped_lock lock{_connections_mutex};
+        _connections.push_back({TcpClient{ip, port}, metadata});
+    }
     std::cerr << "(info) Added a new server: (id: " << metadata.id << ", weight: " << metadata.weight << ")\n";
 }
 
@@ -53,24 +54,27 @@ void LoadBalancer::start() {
 TransactionResult queryClient(std::shared_mutex &mutex, Connection &connection,
                               const AcceptData &client_request) noexcept {
     try {
+        std::unique_lock lock{mutex};
+
         const auto &[data, remote_fd] = client_request;
 
-        if (!data.has_value()) { return {client_request.remote_fd, "", connection, mutex}; }
+        if (!data.has_value()) { return {client_request.remote_fd, std::nullopt, connection, mutex}; }
 
-        mutex.lock();
+
+        lock.lock();
         auto &[client, metadata, ongoing_transactions] = connection;
         std::cerr << "(info): querying actual server (weight: " << metadata.weight << ")\n";
         ongoing_transactions++;
-        mutex.unlock();
+        lock.unlock();
         const auto response = client.query(*data);
-        mutex.lock();
+        lock.lock();
         ongoing_transactions--;
-        mutex.unlock();
+        lock.unlock();
 
         return {client_request.remote_fd, response, connection, mutex};
     } catch (std::runtime_error e) { perror("queryClient::LoadBalancer"); }
 
-    return {-1, "", connection, mutex};
+    return {-1, std::nullopt, connection, mutex};
 }
 
 void LoadBalancer::resolveFinishedTransactions() {
@@ -84,11 +88,15 @@ void LoadBalancer::resolveFinishedTransactions() {
 
         const auto [remote_fd, response_string, connection, mutex] = transaction.get();
 
-        // Update Server freshness
-        mutex.lock();
-
-
-        _proxy.respond(remote_fd, response_string);
+        if (response_string.has_value()) {
+            _proxy.respond(remote_fd, *response_string);
+        } else {
+            const http::Response response{.code = 503,
+                                          .status_text = "Service Unavailable",
+                                          .headers = {{"Content-Type", "text/html"}},
+                                          .body = http::messageHtml("Unable to connect to server")};
+            _proxy.respond(remote_fd, response.construct());
+        }
     }
 
     const auto is_transaction_complete = [](const Transaction &t) { return !t.transaction.valid(); };
@@ -129,9 +137,10 @@ void LoadBalancer::createTransaction(Connection &connection, const AcceptData &c
 }
 
 void LoadBalancer::startWeightedRoundRobin() {
-    _connections_mutex.lock_shared();
+    std::shared_lock lock{_connections_mutex};
+    lock.lock();
     static auto current = _connections.begin();
-    _connections_mutex.unlock_shared();
+    lock.unlock();
 
     static int times_connected = 0;
 
@@ -145,14 +154,14 @@ void LoadBalancer::startWeightedRoundRobin() {
 
         createTransaction(*current, client_request);
 
-        _connections_mutex.lock_shared();
+        lock.lock();
         times_connected++;
         if (times_connected >= current->metadata.weight) {
             std::advance(current, 1);
             times_connected = 0;
         }
         if (current == _connections.end()) { current = _connections.begin(); }
-        _connections_mutex.unlock_shared();
+        lock.unlock();
     }
 }
 
@@ -165,16 +174,20 @@ void LoadBalancer::startLeastConnections() {
         const auto client_request = checkForNewQueries();
         if (!client_request.data.has_value()) { continue; }
 
-        _connections_mutex.lock_shared();
-        auto least_used_connection = std::ref(_connections.front());
-        for (auto &connection : _connections) {
-            if (connection.ongoing_transactions < least_used_connection.get().ongoing_transactions) {
-                least_used_connection = std::ref(connection);
-            }
-        }
-        _connections_mutex.unlock_shared();
+        {
+            std::shared_lock lock{_connections_mutex};
 
-        createTransaction(least_used_connection, client_request);
+            lock.lock();
+            auto least_used_connection = std::ref(_connections.front());
+            for (auto &connection : _connections) {
+                if (connection.ongoing_transactions < least_used_connection.get().ongoing_transactions) {
+                    least_used_connection = std::ref(connection);
+                }
+            }
+            lock.unlock();
+
+            createTransaction(least_used_connection, client_request);
+        }
     }
 }
 

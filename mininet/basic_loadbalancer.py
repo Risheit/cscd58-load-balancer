@@ -4,8 +4,6 @@ from argparse import ArgumentParser
 from mininet.net import Mininet
 from mininet.node import Controller
 from mininet.cli import CLI
-from mininet.node import CPULimitedHost
-from mininet.topo import SingleSwitchTopo
 from mininet.log import setLogLevel, info
 
 def simple_load_balancer(num_clients = 6, num_servers = 4, delay = 0):
@@ -55,8 +53,9 @@ def simple_load_balancer(num_clients = 6, num_servers = 4, delay = 0):
     for server in servers:
         arg_list.append(server.IP())
         arg_list.append('80')
+        arg_list.append('1')
     
-    lb.cmdPrint('sudo ./build/bin/Load_Balancer -p 80 ' + ' '.join(arg_list) + ' &')
+    lb.cmdPrint('sudo ./build/bin/Load_Balancer -p 80 -c 30 ' + ' '.join(arg_list) + ' 2> logs.txt &')
     
     info( '*** Running CLI\n' )
     CLI( net )

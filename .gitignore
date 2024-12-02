@@ -39,3 +39,6 @@ build
 # IDE config files
 .idea
 .vscode
+
+# Logs
+logs.txt

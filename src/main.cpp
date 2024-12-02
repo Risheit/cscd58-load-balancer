@@ -55,7 +55,7 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    LoadBalancer lb{args.used_port, retries, args.connections, quit};
+    LoadBalancer lb{args.used_port, args.connections, retries, quit};
     for (int i = args.starting_arg; i < argc; i += 3) {
         try {
             if (i + 2 >= argc) { throw std::invalid_argument{""}; }

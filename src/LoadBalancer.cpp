@@ -1,12 +1,13 @@
 #include "LoadBalancer.hpp"
 #include <algorithm>
 #include <chrono>
-#include <cstddef>
 #include <cstdio>
 #include <future>
+#include <ios>
 #include <iostream>
+#include <iterator>
 #include <mutex>
-#include <random>
+#include <numeric>
 #include <shared_mutex>
 #include <stdexcept>
 #include <string>
@@ -96,16 +97,14 @@ void LoadBalancer::resolveFinishedTransactions() {
         auto [remote_fd, response_string, connection, mutex] = result.get();
 
         if (response_string.has_value()) {
-            std::cerr << "Here 1\n";
             _proxy.respond(remote_fd, *response_string);
         } else {
             if (attempted > _retries) {
-                std::cerr << "(info) " << attempted << " > " << _retries << "\n";
-                std::cerr << "Here 2\n";
+                std::cerr << "(info) failed to get data \n";
                 _proxy.respond(remote_fd, http::Response::respond503().construct());
             } else {
                 std::cerr << "(info) attempting to retry the response (" << attempted << "<" << _retries << ")\n";
-                std::cerr << "(debug) pushing the request to failures...\n" << request.value_or("INVALID") << "###\n";
+                connection.metadata.is_inactive = true;
                 _failures.push({remote_fd, request.value(), connection, attempted});
             }
         }
@@ -119,12 +118,17 @@ AcceptData LoadBalancer::checkForNewQueries() {
     const auto client_request = _proxy.tryAcceptLatest(accept_timout_ms);
     if (!client_request.data.has_value()) { return AcceptData{.remote_fd = -1}; }
 
-    std::cerr << "Here 0\n";
-
     // Ignore transactions if there are no server connections
     if (_connections.size() == 0) {
         std::cerr << "(error): No connected servers to query\n";
-        std::cerr << "Here 4\n";
+        _proxy.respond(client_request.remote_fd, http::Response::respond503().construct());
+        return {.remote_fd = -1};
+    }
+
+    const bool are_all_servers_down = std::all_of(_connections.begin(), _connections.end(),
+                                                  [](const Connection &c) { return c.metadata.is_inactive; });
+    if (are_all_servers_down) {
+        std::cerr << "(error): All backing servers are down\n";
         _proxy.respond(client_request.remote_fd, http::Response::respond503().construct());
         return {.remote_fd = -1};
     }
@@ -156,6 +160,9 @@ void LoadBalancer::startWeightedRoundRobin() {
         resolveFinishedTransactions();
 
         if (!_failures.empty()) {
+            std::cerr << "(debug) is server " << current->metadata.id << " inactive: " << std::boolalpha
+                      << current->metadata.is_inactive << "\n";
+
             auto &[socket_fd, data, connection, attempted] = _failures.front();
             std::cerr << "(debug) retrying a request...\n" << data << "###\n";
             AcceptData request{data, socket_fd};
@@ -170,11 +177,22 @@ void LoadBalancer::startWeightedRoundRobin() {
 
         lock.lock();
         times_connected++;
-        if (times_connected >= current->metadata.weight) {
-            std::advance(current, 1);
+        if (times_connected >= current->metadata.weight || current->metadata.is_inactive) {
+            const int timeout = _connections.size() + 4;
+            int attempts = 0;
             times_connected = 0;
+            while (true) {
+                times_connected++;
+                std::advance(current, 1);
+                if (current == _connections.end()) { current = _connections.begin(); }
+
+                if (!current->metadata.is_inactive) { break; }
+                if (times_connected > timeout) {
+                    current = _connections.begin();
+                    break;
+                }
+            }
         }
-        if (current == _connections.end()) { current = _connections.begin(); }
         lock.unlock();
     }
 }
@@ -192,6 +210,8 @@ void LoadBalancer::startLeastConnections() {
             std::shared_lock lock{_connections_mutex};
             auto least_used_connection = std::ref(_connections.front());
             for (auto &connection : _connections) {
+                if (connection.metadata.is_inactive) { continue; }
+
                 if (connection.ongoing_transactions < least_used_connection.get().ongoing_transactions) {
                     least_used_connection = std::ref(connection);
                 }
@@ -212,13 +232,19 @@ void LoadBalancer::startRandom() {
         const auto client_request = checkForNewQueries();
         if (!client_request.data.has_value()) { continue; }
 
+
+        // Indexes of elements from fill from 0 to size - 1;
+        std::vector<int> connections_indexes(_connections.size());
+        std::iota(connections_indexes.begin(), connections_indexes.end(), 0);
+        std::shuffle(connections_indexes.begin(), connections_indexes.end(), gen);
+
         {
             std::shared_lock lock{_connections_mutex};
-            std::uniform_int_distribution<std::size_t> dist{0, _connections.size() - 1};
-            size_t indx = dist(gen);
+            auto connection = std::find_if(_connections.begin(), _connections.end(),
+                                           [](const Connection &c) { return !c.metadata.is_inactive; });
             lock.unlock();
 
-            createTransaction(_connections[indx], client_request);
+            createTransaction(*connection, client_request);
         }
     }
 }

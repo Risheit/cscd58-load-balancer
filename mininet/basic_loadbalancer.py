@@ -6,7 +6,8 @@ from mininet.node import Controller
 from mininet.cli import CLI
 from mininet.log import setLogLevel, info
 
-def simple_load_balancer(num_clients = 6, num_servers = 4, delay = 0):
+def simple_load_balancer(args):
+    print(args)
     """Create a topology with clients, servers, and a load balancer all connected up to a single switch.
 
     Args:
@@ -20,11 +21,11 @@ def simple_load_balancer(num_clients = 6, num_servers = 4, delay = 0):
     net.addController( 'c0' )
 
     info( '*** Adding clients\n' )
-    clients = [net.addHost(f'h{i}', ip=f'10.0.0.{i}') for i in range(1, num_clients + 1)]
+    clients = [net.addHost(f'h{i}', ip=f'10.0.0.{i}') for i in range(1, args.clients + 1)]
     info( '*** Adding servers\n' )
-    servers = [net.addHost(f'h{i}', ip=f'10.0.1.{i}') for i in range(num_clients + 1, num_clients + num_servers + 1)]
+    servers = [net.addHost(f'h{i}', ip=f'10.0.1.{i}') for i in range(args.clients + 1, args.clients + args.servers + 1)]
     info( '*** Adding load balancer\n' )
-    lb = net.addHost(f'h{num_clients + num_servers + 1}', ip='10.0.2.1')
+    lb = net.addHost(f'h{args.clients + args.servers + 1}', ip='10.0.2.1')
 
 
     info( '*** Adding switch\n' )
@@ -43,11 +44,11 @@ def simple_load_balancer(num_clients = 6, num_servers = 4, delay = 0):
     net.start()
 
 
-    info( f'*** Spinning up webservers on servers (h{num_clients + 1} - h{num_clients + num_servers}) \n')
+    info( f'*** Spinning up webservers on servers (h{args.clients + 1} - h{args.clients + args.servers}) \n')
     for server in servers:
-        server.cmdPrint(f'python ./mininet/server.py -l 0.0.0.0 -p 80 -s {delay} {server.name} &')
+        server.cmdPrint(f'python ./mininet/server.py -l 0.0.0.0 -p 80 -s {args.delay} {server.name} &')
 
-    info( f'*** Launching load balancer (h{num_clients + num_servers + 1}) \n')
+    info( f'*** Launching load balancer (h{args.clients + args.servers + 1}) \n')
     
     arg_list = []
     for server in servers:
@@ -55,7 +56,7 @@ def simple_load_balancer(num_clients = 6, num_servers = 4, delay = 0):
         arg_list.append('80')
         arg_list.append('1')
     
-    lb.cmdPrint('sudo ./build/bin/Load_Balancer -p 80 -c 30 ' + ' '.join(arg_list) + ' 2> logs.txt &')
+    lb.cmdPrint(f'sudo ./build/bin/Load_Balancer --{args.strategy} -p 80 -c 30 ' + ' '.join(arg_list) + ' 2> logs.txt &')
     
     info( '*** Running CLI\n' )
     CLI( net )
@@ -65,7 +66,8 @@ def simple_load_balancer(num_clients = 6, num_servers = 4, delay = 0):
 
 
 if __name__ == '__main__':
-    parser = ArgumentParser(description="Run a simple HTTP server")
+    parser = ArgumentParser(description="Boot up Mininet with a topology with clients, "
+                            +"servers, and a load balancer all connected up to a single switch.")
     parser.add_argument(
         "-c",
         "--clients",
@@ -78,17 +80,25 @@ if __name__ == '__main__':
         "--servers",
         type=int,
         default="4",
-        help="Specify the server on which the server listens",
+        help="Specify the server on which the server listens.",
     )
     parser.add_argument(
         "-d",
         "--delay",
         type=int,
         default=0,
-        help="Specify in seconds on how long the each server takes to respond",
+        help="Specify in seconds on how long the each server takes to respond." 
+        + "The argument for this option is passed in as [-s DELAY] to the servers.",
+    )
+    parser.add_argument(
+        "-t",
+        "--strategy",
+        type=str,
+        default="robin",
+        help="The strategy to use. The argument for this option is passed in as [--strategy] to the load balancer."
     )
     
     args = parser.parse_args()
     
     setLogLevel( 'info' )
-    simple_load_balancer(args.clients, args.servers, args.delay)
+    simple_load_balancer(args)

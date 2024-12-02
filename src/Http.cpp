@@ -46,12 +46,8 @@ std::string Request::construct() const {
 
 std::string Response::construct() const {
     std::string request;
-    std::cerr << "(debug) request: " << request;
-
     const auto startLine = "HTTP/1.1 " + std::to_string(code) + " " + status_text + "\n";
     request.append(startLine);
-    std::cerr << "(debug) startLine: " << startLine;
-    std::cerr << "(debug) request: " << request;
 
     std::string headerString = "";
     for (auto [key, value] : headers) {
@@ -59,19 +55,12 @@ std::string Response::construct() const {
         headerString.append(header);
     }
 
-    std::cerr << "(debug) headers: " << headerString;
-    std::cerr << "(debug) request: " << request;
-
     request.append(headerString);
     if (body.has_value()) {
         const auto content_length = "Content-Length: " + std::to_string(body->length()) + "\n";
         request.append(content_length);
         request.append("\n");
         request.append(*body);
-
-
-        std::cerr << "(debug) body: " << *body;
-        std::cerr << "(debug) request: " << request;
     }
 
     return request;

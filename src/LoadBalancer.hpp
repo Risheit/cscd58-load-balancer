@@ -3,6 +3,7 @@
 #include <atomic>
 #include <chrono>
 #include <future>
+#include <queue>
 #include <random>
 #include <shared_mutex>
 #include <string>
@@ -37,8 +38,8 @@ struct Connection {
 
 struct TransactionFailure {
     int socket_fd;
-    sockets::data data;
-    Connection &connection;
+    std::string data;
+    const Connection &connection;
     int attempted;
 };
 
@@ -52,6 +53,7 @@ struct TransactionResult {
 struct Transaction {
     std::future<TransactionResult> result;
     clock::time_point created;
+    sockets::data request;
     int attempted;
 };
 
@@ -69,7 +71,7 @@ public:
 private:
     AcceptData checkForNewQueries();
     void resolveFinishedTransactions();
-    void createTransaction(Connection &connection, const AcceptData &client_request);
+    void createTransaction(Connection &connection, const AcceptData &client_request, int attempted = 0);
 
     void startWeightedRoundRobin();
     void startLeastConnections();
@@ -82,6 +84,7 @@ private:
     int _retries;
     const std::atomic_bool &_quit_signal;
     std::vector<Transaction> _transactions;
+    std::queue<TransactionFailure> _failures;
     Strategy _strategy = Strategy::WEIGHTED_ROUND_ROBIN;
     std::mt19937 gen{std::random_device{}()};
 };

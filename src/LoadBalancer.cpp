@@ -84,19 +84,30 @@ void LoadBalancer::resolveFinishedTransactions() {
     using namespace std::chrono_literals;
 
     for (auto &transaction : _transactions) {
-        auto &[result, created, attempted] = transaction;
+        auto &[result, created, request, attempted] = transaction;
 
         if (!result.valid()) { continue; }
 
         const auto state = result.wait_for(10ms);
         if (state != std::future_status::ready) { continue; }
 
-        const auto [remote_fd, response_string, connection, mutex] = result.get();
+        std::cerr << "(debug) gotten request:\n" << request.value_or("INVALID") << "\n";
+
+        auto [remote_fd, response_string, connection, mutex] = result.get();
 
         if (response_string.has_value()) {
+            std::cerr << "Here 1\n";
             _proxy.respond(remote_fd, *response_string);
         } else {
-            _proxy.respond(remote_fd, http::Response::respond503().construct());
+            if (attempted > _retries) {
+                std::cerr << "(info) " << attempted << " > " << _retries << "\n";
+                std::cerr << "Here 2\n";
+                _proxy.respond(remote_fd, http::Response::respond503().construct());
+            } else {
+                std::cerr << "(info) attempting to retry the response (" << attempted << "<" << _retries << ")\n";
+                std::cerr << "(debug) pushing the request to failures...\n" << request.value_or("INVALID") << "###\n";
+                _failures.push({remote_fd, request.value(), connection, attempted});
+            }
         }
     }
 
@@ -113,6 +124,7 @@ AcceptData LoadBalancer::checkForNewQueries() {
     // Ignore transactions if there are no server connections
     if (_connections.size() == 0) {
         std::cerr << "(error): No connected servers to query\n";
+        std::cerr << "Here 4\n";
         _proxy.respond(client_request.remote_fd, http::Response::respond503().construct());
         return {.remote_fd = -1};
     }
@@ -120,7 +132,7 @@ AcceptData LoadBalancer::checkForNewQueries() {
     return client_request;
 }
 
-void LoadBalancer::createTransaction(Connection &connection, const AcceptData &client_request) {
+void LoadBalancer::createTransaction(Connection &connection, const AcceptData &client_request, int attempted) {
     std::cerr << "(debug) creating a new transaction on server " << connection.metadata.id
               << ". Number of connections:" << connection.ongoing_transactions << "\n";
 
@@ -128,7 +140,7 @@ void LoadBalancer::createTransaction(Connection &connection, const AcceptData &c
     auto transaction = std::async(std::launch::async, &ls::queryClient, std::ref(_connections_mutex),
                                   std::ref(connection), client_request);
     clock::time_point s;
-    _transactions.push_back({std::move(transaction), clock::now()});
+    _transactions.push_back({std::move(transaction), clock::now(), client_request.data, attempted});
 }
 
 void LoadBalancer::startWeightedRoundRobin() {
@@ -143,10 +155,18 @@ void LoadBalancer::startWeightedRoundRobin() {
 
         resolveFinishedTransactions();
 
-        const auto client_request = checkForNewQueries();
-        if (!client_request.data.has_value()) { continue; }
+        if (!_failures.empty()) {
+            auto &[socket_fd, data, connection, attempted] = _failures.front();
+            std::cerr << "(debug) retrying a request...\n" << data << "###\n";
+            AcceptData request{data, socket_fd};
+            createTransaction(*current, request, attempted + 1);
+            _failures.pop();
+        } else {
+            const auto client_request = checkForNewQueries();
+            if (!client_request.data.has_value()) { continue; }
 
-        createTransaction(*current, client_request);
+            createTransaction(*current, client_request);
+        }
 
         lock.lock();
         times_connected++;

@@ -9,7 +9,7 @@
 namespace ls {
 
 struct AcceptData {
-    std::optional<std::string> data;
+    sockets::data data;
     int remote_fd;
 };
 

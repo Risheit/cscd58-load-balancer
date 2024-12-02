@@ -14,7 +14,7 @@ namespace ls {
 
 
 Server::Server(int port, int connections_accepted) :
-    _port(port), _connections_accepted(connections_accepted), _socket({sockets::createSocket(), "server"}) {
+    _port(port), _connections_accepted(connections_accepted), _socket({sockets::createSocket(), "local"}) {
     assert(port > 0);
     assert(connections_accepted > 0);
 

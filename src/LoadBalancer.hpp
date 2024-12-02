@@ -19,9 +19,7 @@ using clock = std::chrono::system_clock;
 constexpr int accept_timout_ms = 10;
 
 struct Metadata {
-    inline static Metadata makeDefault() {
-        return {.weight = 1, .id = -1, .last_refreshed = std::chrono::system_clock::now()};
-    }
+    inline static Metadata makeDefault() { return {.weight = 1, .id = -1}; }
 
 public:
     int weight;
@@ -43,8 +41,9 @@ struct TransactionResult {
 };
 
 struct Transaction {
-    std::future<TransactionResult> transaction;
-    clock::time_point created;
+    std::shared_future<TransactionResult> result;
+    AcceptData request;
+    clock::time_point created = clock::now();
 };
 
 class LoadBalancer {

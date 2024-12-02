@@ -18,7 +18,7 @@ TcpClient::TcpClient(std::string ip, int port) : _ip(ip), _port(port) {
 sockets::data TcpClient::query(std::string data) {
     int code;
 
-    const sockets::Socket _socket{sockets::createSocket(), "client"};
+    const sockets::Socket _socket{sockets::createSocket(), "server at " + _ip + ":" + std::to_string(_port)};
     socklen_t addr_len = sizeof(_addr);
 
     code = connect(_socket.fd(), sockets::asGeneric(&_addr), addr_len);

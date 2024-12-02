@@ -25,10 +25,8 @@ void LoadBalancer::addConnections(std::string ip, int port, Metadata metadata) {
     static int unique_id = 1;
     if (metadata.id == -1) { metadata.id = unique_id++; }
 
-    {
-        std::scoped_lock lock{_connections_mutex};
-        _connections.push_back({TcpClient{ip, port}, metadata});
-    }
+    std::unique_lock lock{_connections_mutex};
+    _connections.push_back({TcpClient{ip, port}, metadata});
     std::cerr << "(info) Added a new server: (id: " << metadata.id << ", weight: " << metadata.weight << ")\n";
 }
 
@@ -56,14 +54,12 @@ void LoadBalancer::start() {
 TransactionResult queryClient(std::shared_mutex &mutex, Connection &connection,
                               const AcceptData &client_request) noexcept {
     try {
-        std::unique_lock lock{mutex};
 
         const auto &[data, remote_fd] = client_request;
 
         if (!data.has_value()) { return {client_request.remote_fd, std::nullopt, connection, mutex}; }
 
-
-        lock.lock();
+        std::unique_lock lock{mutex};
         auto &[client, metadata, ongoing_transactions] = connection;
         std::cerr << "(info): querying actual server (weight: " << metadata.weight << ")\n";
         ongoing_transactions++;
@@ -82,13 +78,13 @@ TransactionResult queryClient(std::shared_mutex &mutex, Connection &connection,
 void LoadBalancer::resolveFinishedTransactions() {
     using namespace std::chrono_literals;
 
-    for (auto &[transaction, created] : _transactions) {
-        if (!transaction.valid()) { continue; }
+    for (auto &[result, request, created] : _transactions) {
+        if (!result.valid()) { continue; }
 
-        const auto state = transaction.wait_for(10ms);
+        const auto state = result.wait_for(10ms);
         if (state != std::future_status::ready) { continue; }
 
-        const auto [remote_fd, response_string, connection, mutex] = transaction.get();
+        const auto [remote_fd, response_string, connection, mutex] = result.get();
 
         if (response_string.has_value()) {
             _proxy.respond(remote_fd, *response_string);
@@ -101,7 +97,7 @@ void LoadBalancer::resolveFinishedTransactions() {
         }
     }
 
-    const auto is_transaction_complete = [](const Transaction &t) { return !t.transaction.valid(); };
+    const auto is_transaction_complete = [](const Transaction &t) { return !t.result.valid(); };
     std::remove_if(_transactions.begin(), _transactions.end(), is_transaction_complete);
 }
 
@@ -113,14 +109,8 @@ AcceptData LoadBalancer::checkForNewQueries() {
 
     // Ignore transactions if there are no server connections
     if (_connections.size() == 0) {
-        const http::Response response{.code = 503,
-                                      .status_text = "Service Unavailable",
-                                      .headers = {{"Content-Type", "text/html"}},
-                                      .body = http::messageHtml("Unable to connect to server")};
-
-        const auto response_string = response.construct();
         std::cerr << "(error): No connected servers to query\n";
-        _proxy.respond(client_request.remote_fd, response_string);
+        _proxy.respond(client_request.remote_fd, http::Response::respond503().construct());
         return {.remote_fd = -1};
     }
 
@@ -135,12 +125,11 @@ void LoadBalancer::createTransaction(Connection &connection, const AcceptData &c
     auto transaction = std::async(std::launch::async, &ls::queryClient, std::ref(_connections_mutex),
                                   std::ref(connection), client_request);
     clock::time_point s;
-    _transactions.push_back({std::move(transaction), clock::now()});
+    _transactions.push_back({std::move(transaction)});
 }
 
 void LoadBalancer::startWeightedRoundRobin() {
     std::shared_lock lock{_connections_mutex};
-    lock.lock();
     static auto current = _connections.begin();
     lock.unlock();
 
@@ -178,8 +167,6 @@ void LoadBalancer::startLeastConnections() {
 
         {
             std::shared_lock lock{_connections_mutex};
-
-            lock.lock();
             auto least_used_connection = std::ref(_connections.front());
             for (auto &connection : _connections) {
                 if (connection.ongoing_transactions < least_used_connection.get().ongoing_transactions) {
@@ -204,8 +191,6 @@ void LoadBalancer::startRandom() {
 
         {
             std::shared_lock lock{_connections_mutex};
-
-            lock.lock();
             std::uniform_int_distribution<std::size_t> dist{0, _connections.size() - 1};
             size_t indx = dist(gen);
             lock.unlock();

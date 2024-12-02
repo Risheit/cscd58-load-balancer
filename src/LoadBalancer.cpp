@@ -1,10 +1,12 @@
 #include "LoadBalancer.hpp"
 #include <algorithm>
 #include <chrono>
+#include <cstddef>
 #include <cstdio>
 #include <future>
 #include <iostream>
 #include <mutex>
+#include <random>
 #include <shared_mutex>
 #include <stdexcept>
 #include <string>
@@ -44,10 +46,10 @@ void LoadBalancer::use(Strategy strategy) {
 }
 
 void LoadBalancer::start() {
-
     switch (_strategy) {
     case Strategy::WEIGHTED_ROUND_ROBIN: startWeightedRoundRobin(); break;
     case Strategy::LEAST_CONNECTIONS: startLeastConnections(); break;
+    case Strategy::RANDOM: startRandom(); break;
     }
 }
 
@@ -187,6 +189,28 @@ void LoadBalancer::startLeastConnections() {
             lock.unlock();
 
             createTransaction(least_used_connection, client_request);
+        }
+    }
+}
+
+void LoadBalancer::startRandom() {
+    while (true) {
+        if (_quit_signal.load()) { break; }
+
+        resolveFinishedTransactions();
+
+        const auto client_request = checkForNewQueries();
+        if (!client_request.data.has_value()) { continue; }
+
+        {
+            std::shared_lock lock{_connections_mutex};
+
+            lock.lock();
+            std::uniform_int_distribution<std::size_t> dist{0, _connections.size() - 1};
+            size_t indx = dist(gen);
+            lock.unlock();
+
+            createTransaction(_connections[indx], client_request);
         }
     }
 }

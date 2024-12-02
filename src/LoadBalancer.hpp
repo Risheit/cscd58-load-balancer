@@ -3,6 +3,7 @@
 #include <atomic>
 #include <chrono>
 #include <future>
+#include <random>
 #include <shared_mutex>
 #include <string>
 #include <sys/types.h>
@@ -48,7 +49,7 @@ struct Transaction {
 
 class LoadBalancer {
 public:
-    enum class Strategy { WEIGHTED_ROUND_ROBIN, LEAST_CONNECTIONS };
+    enum class Strategy { WEIGHTED_ROUND_ROBIN, LEAST_CONNECTIONS, RANDOM };
 
     LoadBalancer(int port, int connections_accepted, const std::atomic_bool &quitSignal);
     void addConnections(std::string ip, int port = 80, Metadata metadata = Metadata::makeDefault());
@@ -64,6 +65,7 @@ private:
 
     void startWeightedRoundRobin();
     void startLeastConnections();
+    void startRandom();
 
 private:
     Server _proxy;
@@ -72,6 +74,7 @@ private:
     const std::atomic_bool &_quit_signal;
     std::vector<Transaction> _transactions;
     Strategy _strategy = Strategy::WEIGHTED_ROUND_ROBIN;
+    std::mt19937 gen{std::random_device{}()};
 };
 
 } // namespace ls

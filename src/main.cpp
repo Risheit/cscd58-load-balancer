@@ -23,8 +23,12 @@ void ensureControlledExit();
 struct SetupArgs {
     static SetupArgs getFlags(int argc, char **argv);
     inline static void printUsageMessage(char **argv) {
-        std::cerr << "Usage: " << argv[0] << " [-p | --port {port}] [-c | --connections {amt}] [--robin | --least] "
-                  << "{ ip_addr1   port1   weight1 } ...\n";
+        std::cerr << "Usage: " << argv[0] << " [-p | --port {port}] [-c | --connections {amt}] [strategy] "
+                  << "{ ip_addr1   port1   weight1 } ... \n \n"
+                  << "Valid strategy types: \n"
+                  << "\t--robin: Starts the load balancer using a weighted round robin algorithm\n"
+                  << "\t--least: Starts the load balancer using a least connections algorithm\n"
+                  << "\t--random: Starts the load balancer randomly selecting connected servers\n";
     }
 
 public:
@@ -53,6 +57,8 @@ int main(int argc, char **argv) {
     LoadBalancer lb{args.used_port, args.connections, quit};
     for (int i = args.starting_arg; i < argc; i += 3) {
         try {
+            if (i + 2 >= argc) { throw std::invalid_argument{""}; }
+
             std::string forward_ip = argv[i];
             int forward_port = std::stoi(argv[i + 1]);
             int weight = std::stoi(argv[i + 2]);
@@ -61,6 +67,7 @@ int main(int argc, char **argv) {
             metadata.weight = weight;
             lb.addConnections(forward_ip, forward_port, metadata);
         } catch (std::logic_error e) {
+            std::cerr << "(error) Given connection is malformed.\n";
             SetupArgs::printUsageMessage(argv);
             return 1;
         }
@@ -100,16 +107,16 @@ SetupArgs SetupArgs::getFlags(int argc, char **argv) {
             if (args.connections < 0) { throw std::invalid_argument{""}; }
             args.starting_arg += 2;
             i++;
-        } else if (flag == "--robin") {
+        } else if (flag == "--robin" || flag == "--least" || flag == "--random") {
             if (strategy_specified) { throw std::invalid_argument{""}; }
 
-            args.strategy = Strategy::WEIGHTED_ROUND_ROBIN;
-            strategy_specified = true;
-            args.starting_arg++;
-        } else if (flag == "--least") {
-            if (strategy_specified) { throw std::invalid_argument{""}; }
+            if (flag == "robin")
+                args.strategy = Strategy::WEIGHTED_ROUND_ROBIN;
+            else if (flag == "least")
+                args.strategy = Strategy::LEAST_CONNECTIONS;
+            else if (flag == "random")
+                args.strategy = Strategy::RANDOM;
 
-            args.strategy = Strategy::LEAST_CONNECTIONS;
             strategy_specified = true;
             args.starting_arg++;
         }

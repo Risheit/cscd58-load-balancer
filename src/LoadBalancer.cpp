@@ -18,8 +18,8 @@
 namespace ls {
 
 
-LoadBalancer::LoadBalancer(int port, int connections_accepted, const std::atomic_bool &quitSignal) :
-    _proxy(port, connections_accepted), _connections(), _quit_signal(quitSignal) {}
+LoadBalancer::LoadBalancer(int port, int connections_accepted, int retries, const std::atomic_bool &quitSignal) :
+    _proxy(port, connections_accepted), _retries(retries), _connections(), _quit_signal(quitSignal) {}
 
 void LoadBalancer::addConnections(std::string ip, int port, Metadata metadata) {
     static int unique_id = 1;
@@ -38,6 +38,8 @@ void LoadBalancer::use(Strategy strategy) {
         std::cerr << "WEIGHTED ROUND ROBIN";
     } else if (strategy == Strategy::LEAST_CONNECTIONS) {
         std::cerr << "LEAST CONNECTIONS";
+    } else if (strategy == Strategy::RANDOM) {
+        std::cerr << "RANDOM";
     } else {
         std::cerr << "UNKNOWN";
     }
@@ -81,26 +83,24 @@ TransactionResult queryClient(std::shared_mutex &mutex, Connection &connection,
 void LoadBalancer::resolveFinishedTransactions() {
     using namespace std::chrono_literals;
 
-    for (auto &[transaction, created] : _transactions) {
-        if (!transaction.valid()) { continue; }
+    for (auto &transaction : _transactions) {
+        auto &[result, created, attempted] = transaction;
 
-        const auto state = transaction.wait_for(10ms);
+        if (!result.valid()) { continue; }
+
+        const auto state = result.wait_for(10ms);
         if (state != std::future_status::ready) { continue; }
 
-        const auto [remote_fd, response_string, connection, mutex] = transaction.get();
+        const auto [remote_fd, response_string, connection, mutex] = result.get();
 
         if (response_string.has_value()) {
             _proxy.respond(remote_fd, *response_string);
         } else {
-            const http::Response response{.code = 503,
-                                          .status_text = "Service Unavailable",
-                                          .headers = {{"Content-Type", "text/html"}},
-                                          .body = http::messageHtml("Unable to connect to server")};
-            _proxy.respond(remote_fd, response.construct());
+            _proxy.respond(remote_fd, http::Response::respond503().construct());
         }
     }
 
-    const auto is_transaction_complete = [](const Transaction &t) { return !t.transaction.valid(); };
+    const auto is_transaction_complete = [](const Transaction &t) { return !t.result.valid(); };
     std::remove_if(_transactions.begin(), _transactions.end(), is_transaction_complete);
 }
 
@@ -112,14 +112,8 @@ AcceptData LoadBalancer::checkForNewQueries() {
 
     // Ignore transactions if there are no server connections
     if (_connections.size() == 0) {
-        const http::Response response{.code = 503,
-                                      .status_text = "Service Unavailable",
-                                      .headers = {{"Content-Type", "text/html"}},
-                                      .body = http::messageHtml("Unable to connect to server")};
-
-        const auto response_string = response.construct();
         std::cerr << "(error): No connected servers to query\n";
-        _proxy.respond(client_request.remote_fd, response_string);
+        _proxy.respond(client_request.remote_fd, http::Response::respond503().construct());
         return {.remote_fd = -1};
     }
 

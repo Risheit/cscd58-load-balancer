@@ -19,6 +19,12 @@ public:
 
 struct Response {
     [[nodiscard]] std::string construct() const;
+    [[nodiscard]] static inline Response respond503() {
+        return {.code = 503,
+                .status_text = "Service Unavailable",
+                .headers = {{"Content-Type", "text/html"}},
+                .body = http::messageHtml("Unable to connect to server")};
+    }
 
 public:
     int code;

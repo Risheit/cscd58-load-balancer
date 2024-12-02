@@ -35,6 +35,13 @@ struct Connection {
     unsigned int ongoing_transactions = 0;
 };
 
+struct TransactionFailure {
+    int socket_fd;
+    sockets::data data;
+    Connection &connection;
+    int attempted;
+};
+
 struct TransactionResult {
     int socket_fd;
     sockets::data data;
@@ -43,15 +50,16 @@ struct TransactionResult {
 };
 
 struct Transaction {
-    std::future<TransactionResult> transaction;
+    std::future<TransactionResult> result;
     clock::time_point created;
+    int attempted;
 };
 
 class LoadBalancer {
 public:
     enum class Strategy { WEIGHTED_ROUND_ROBIN, LEAST_CONNECTIONS, RANDOM };
 
-    LoadBalancer(int port, int connections_accepted, const std::atomic_bool &quitSignal);
+    LoadBalancer(int port, int connections_accepted, int retries, const std::atomic_bool &quitSignal);
     void addConnections(std::string ip, int port = 80, Metadata metadata = Metadata::makeDefault());
 
 
@@ -71,6 +79,7 @@ private:
     Server _proxy;
     std::vector<Connection> _connections;
     std::shared_mutex _connections_mutex;
+    int _retries;
     const std::atomic_bool &_quit_signal;
     std::vector<Transaction> _transactions;
     Strategy _strategy = Strategy::WEIGHTED_ROUND_ROBIN;

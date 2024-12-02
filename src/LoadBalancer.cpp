@@ -4,7 +4,9 @@
 #include <cstddef>
 #include <cstdio>
 #include <future>
+#include <ios>
 #include <iostream>
+#include <iterator>
 #include <mutex>
 #include <random>
 #include <shared_mutex>
@@ -18,8 +20,8 @@
 namespace ls {
 
 
-LoadBalancer::LoadBalancer(int port, int connections_accepted, const std::atomic_bool &quitSignal) :
-    _proxy(port, connections_accepted), _connections(), _quit_signal(quitSignal) {}
+LoadBalancer::LoadBalancer(int port, int connections_accepted, int max_retries, const std::atomic_bool &quitSignal) :
+    _proxy(port, connections_accepted), _max_retries(max_retries), _connections(), _quit_signal(quitSignal) {}
 
 void LoadBalancer::addConnections(std::string ip, int port, Metadata metadata) {
     static int unique_id = 1;
@@ -61,7 +63,12 @@ TransactionResult queryClient(std::shared_mutex &mutex, Connection &connection,
 
         std::unique_lock lock{mutex};
         auto &[client, metadata, ongoing_transactions] = connection;
-        std::cerr << "(info): querying actual server (weight: " << metadata.weight << ")\n";
+        std::cerr << "(info) querying actual server " << metadata.id << "(weight: " << metadata.weight
+                  << ", is invalid: " << std::boolalpha << metadata.is_invalid << ")\n";
+        std::cerr << "(debug) sending data ... " << data.value_or("INVALID DATA") << "\n###\n";
+        if (data.value_or("INVALID_DATA").empty()) { std::cerr << "(debug) Yes, the data string is empty.\n"; }
+
+        metadata.last_refreshed = clock::now();
         ongoing_transactions++;
         lock.unlock();
         const auto response = client.query(*data);
@@ -77,127 +84,130 @@ TransactionResult queryClient(std::shared_mutex &mutex, Connection &connection,
 
 void LoadBalancer::resolveFinishedTransactions() {
     using namespace std::chrono_literals;
-
-    for (auto &[result, request, created] : _transactions) {
+    for (auto &transaction : _transactions) {
+        auto &result = transaction.result;
         if (!result.valid()) { continue; }
 
-        const auto state = result.wait_for(10ms);
-        if (state != std::future_status::ready) { continue; }
+        for (auto &[result, request, created] : _transactions) {
+            if (!result.valid()) { continue; }
 
-        const auto [remote_fd, response_string, connection, mutex] = result.get();
+            const auto state = result.wait_for(10ms);
+            if (state != std::future_status::ready) { continue; }
 
-        if (response_string.has_value()) {
-            _proxy.respond(remote_fd, *response_string);
-        } else {
-            const http::Response response{.code = 503,
-                                          .status_text = "Service Unavailable",
-                                          .headers = {{"Content-Type", "text/html"}},
-                                          .body = http::messageHtml("Unable to connect to server")};
-            _proxy.respond(remote_fd, response.construct());
-        }
-    }
+            const auto [remote_fd, response_string, connection, mutex] = result.get();
 
-    const auto is_transaction_complete = [](const Transaction &t) { return !t.result.valid(); };
-    std::remove_if(_transactions.begin(), _transactions.end(), is_transaction_complete);
-}
-
-AcceptData LoadBalancer::checkForNewQueries() {
-    const auto client_request = _proxy.tryAcceptLatest(accept_timout_ms);
-    if (!client_request.data.has_value()) { return AcceptData{.remote_fd = -1}; }
-
-    std::cerr << "Here 0\n";
-
-    // Ignore transactions if there are no server connections
-    if (_connections.size() == 0) {
-        std::cerr << "(error): No connected servers to query\n";
-        _proxy.respond(client_request.remote_fd, http::Response::respond503().construct());
-        return {.remote_fd = -1};
-    }
-
-    return client_request;
-}
-
-void LoadBalancer::createTransaction(Connection &connection, const AcceptData &client_request) {
-    std::cerr << "(debug) creating a new transaction on server " << connection.metadata.id
-              << ". Number of connections:" << connection.ongoing_transactions << "\n";
-
-    // Creates a new thread to query the server
-    auto transaction = std::async(std::launch::async, &ls::queryClient, std::ref(_connections_mutex),
-                                  std::ref(connection), client_request);
-    clock::time_point s;
-    _transactions.push_back({std::move(transaction)});
-}
-
-void LoadBalancer::startWeightedRoundRobin() {
-    std::shared_lock lock{_connections_mutex};
-    static auto current = _connections.begin();
-    lock.unlock();
-
-    static int times_connected = 0;
-
-    while (true) {
-        if (_quit_signal.load()) { break; }
-
-        resolveFinishedTransactions();
-
-        const auto client_request = checkForNewQueries();
-        if (!client_request.data.has_value()) { continue; }
-
-        createTransaction(*current, client_request);
-
-        lock.lock();
-        times_connected++;
-        if (times_connected >= current->metadata.weight) {
-            std::advance(current, 1);
-            times_connected = 0;
-        }
-        if (current == _connections.end()) { current = _connections.begin(); }
-        lock.unlock();
-    }
-}
-
-void LoadBalancer::startLeastConnections() {
-    while (true) {
-        if (_quit_signal.load()) { break; }
-
-        resolveFinishedTransactions();
-
-        const auto client_request = checkForNewQueries();
-        if (!client_request.data.has_value()) { continue; }
-
-        {
-            std::shared_lock lock{_connections_mutex};
-            auto least_used_connection = std::ref(_connections.front());
-            for (auto &connection : _connections) {
-                if (connection.ongoing_transactions < least_used_connection.get().ongoing_transactions) {
-                    least_used_connection = std::ref(connection);
-                }
+            if (response_string.has_value()) {
+                _proxy.respond(remote_fd, *response_string);
+            } else {
+                const http::Response response{.code = 503,
+                                              .status_text = "Service Unavailable",
+                                              .headers = {{"Content-Type", "text/html"}},
+                                              .body = http::messageHtml("Unable to connect to server")};
+                _proxy.respond(remote_fd, response.construct());
             }
-            lock.unlock();
+        }
 
-            createTransaction(least_used_connection, client_request);
+        const auto is_transaction_complete = [](const Transaction &t) { return !t.result.valid(); };
+        std::remove_if(_transactions.begin(), _transactions.end(), is_transaction_complete);
+    }
+
+    AcceptData LoadBalancer::checkForNewQueries() {
+        const auto client_request = _proxy.tryAcceptLatest(accept_timout_ms);
+        if (!client_request.data.has_value()) { return AcceptData{.remote_fd = -1}; }
+
+        std::cerr << "Here 0\n";
+
+        // Ignore transactions if there are no server connections
+        if (_connections.size() == 0) {
+            std::cerr << "(error): No connected servers to query\n";
+            _proxy.respond(client_request.remote_fd, http::Response::respond503().construct());
+            return {.remote_fd = -1};
+        }
+
+        return client_request;
+    }
+
+    void LoadBalancer::createTransaction(Connection & connection, const AcceptData &client_request) {
+        std::cerr << "(debug) creating a new transaction on server " << connection.metadata.id
+                  << ". Number of connections:" << connection.ongoing_transactions << "\n";
+
+        // Creates a new thread to query the server
+        auto transaction = std::async(std::launch::async, &ls::queryClient, std::ref(_connections_mutex),
+                                      std::ref(connection), client_request);
+        clock::time_point s;
+        _transactions.push_back({std::move(transaction)});
+    }
+
+    void LoadBalancer::startWeightedRoundRobin() {
+        std::shared_lock lock{_connections_mutex};
+        static auto current = _connections.begin();
+        lock.unlock();
+
+        static int times_connected = 0;
+
+        while (true) {
+            if (_quit_signal.load()) { break; }
+
+            resolveFinishedTransactions();
+
+            const auto client_request = checkForNewQueries();
+            if (!client_request.data.has_value()) { continue; }
+
+            createTransaction(*current, client_request);
+
+            lock.lock();
+            times_connected++;
+            if (times_connected >= current->metadata.weight) {
+                std::advance(current, 1);
+                times_connected = 0;
+            }
+            if (current == _connections.end()) { current = _connections.begin(); }
+            lock.unlock();
         }
     }
-}
 
-void LoadBalancer::startRandom() {
-    while (true) {
-        if (_quit_signal.load()) { break; }
+    void LoadBalancer::startLeastConnections() {
+        while (true) {
+            if (_quit_signal.load()) { break; }
 
-        resolveFinishedTransactions();
+            resolveFinishedTransactions();
 
-        const auto client_request = checkForNewQueries();
-        if (!client_request.data.has_value()) { continue; }
+            const auto client_request = checkForNewQueries();
+            if (!client_request.data.has_value()) { continue; }
 
-        {
-            std::shared_lock lock{_connections_mutex};
-            std::uniform_int_distribution<std::size_t> dist{0, _connections.size() - 1};
-            size_t indx = dist(gen);
-            lock.unlock();
+            {
+                std::shared_lock lock{_connections_mutex};
+                auto least_used_connection = std::ref(_connections.front());
+                for (auto &connection : _connections) {
+                    if (connection.ongoing_transactions < least_used_connection.get().ongoing_transactions) {
+                        least_used_connection = std::ref(connection);
+                    }
+                }
+                lock.unlock();
 
-            createTransaction(_connections[indx], client_request);
+                createTransaction(least_used_connection, client_request);
+            }
         }
     }
-}
+
+    void LoadBalancer::startRandom() {
+        while (true) {
+            if (_quit_signal.load()) { break; }
+
+            resolveFinishedTransactions();
+
+            const auto client_request = checkForNewQueries();
+            if (!client_request.data.has_value()) { continue; }
+
+            {
+                std::shared_lock lock{_connections_mutex};
+                std::uniform_int_distribution<std::size_t> dist{0, _connections.size() - 1};
+                size_t indx = dist(gen);
+                lock.unlock();
+
+                createTransaction(_connections[indx], client_request);
+            }
+        }
+    }
 
 } // namespace ls

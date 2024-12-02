@@ -9,6 +9,7 @@
 
 constexpr int connections_accepted = 5;
 constexpr int port = 40192;
+constexpr int max_retries = 3;
 
 // Signal handling:
 // https://stackoverflow.com/questions/4250013/is-destructor-called-if-sigint-or-sigstp-issued
@@ -54,7 +55,7 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    LoadBalancer lb{args.used_port, args.connections, quit};
+    LoadBalancer lb{args.used_port, max_retries, args.connections, quit};
     for (int i = args.starting_arg; i < argc; i += 3) {
         try {
             if (i + 2 >= argc) { throw std::invalid_argument{""}; }

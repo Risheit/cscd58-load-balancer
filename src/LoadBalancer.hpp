@@ -24,10 +24,14 @@ struct Metadata {
 public:
     int weight;
     int id;
-    clock::time_point last_refreshed;
+    bool is_invalid = false;
+    clock::time_point last_refreshed = clock::now();
 };
 
 struct Connection {
+    inline bool operator==(const Connection &other) { return metadata.id == other.metadata.id; }
+
+public:
     TcpClient client;
     Metadata metadata;
     unsigned int ongoing_transactions = 0;
@@ -44,13 +48,14 @@ struct Transaction {
     std::shared_future<TransactionResult> result;
     AcceptData request;
     clock::time_point created = clock::now();
+    size_t attempts_made = 1;
 };
 
 class LoadBalancer {
 public:
     enum class Strategy { WEIGHTED_ROUND_ROBIN, LEAST_CONNECTIONS, RANDOM };
 
-    LoadBalancer(int port, int connections_accepted, const std::atomic_bool &quitSignal);
+    LoadBalancer(int port, int connections_accepted, int max_retries, const std::atomic_bool &quitSignal);
     void addConnections(std::string ip, int port = 80, Metadata metadata = Metadata::makeDefault());
 
 
@@ -60,7 +65,8 @@ public:
 private:
     AcceptData checkForNewQueries();
     void resolveFinishedTransactions();
-    void createTransaction(Connection &connection, const AcceptData &client_request);
+    void resolveFailedTransaction(Transaction transaction);
+    void createTransaction(Connection &connection, const AcceptData &client_request, size_t attempts_made = 0);
 
     void startWeightedRoundRobin();
     void startLeastConnections();
@@ -74,6 +80,7 @@ private:
     std::vector<Transaction> _transactions;
     Strategy _strategy = Strategy::WEIGHTED_ROUND_ROBIN;
     std::mt19937 gen{std::random_device{}()};
+    size_t _max_retries;
 };
 
 } // namespace ls

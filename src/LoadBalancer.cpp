@@ -56,14 +56,13 @@ void LoadBalancer::start() {
 TransactionResult queryClient(std::shared_mutex &mutex, Connection &connection,
                               const AcceptData &client_request) noexcept {
     try {
-        std::unique_lock lock{mutex};
 
         const auto &[data, remote_fd] = client_request;
 
         if (!data.has_value()) { return {client_request.remote_fd, std::nullopt, connection, mutex}; }
 
 
-        lock.lock();
+        std::unique_lock lock{mutex};
         auto &[client, metadata, ongoing_transactions] = connection;
         std::cerr << "(info): querying actual server (weight: " << metadata.weight << ")\n";
         ongoing_transactions++;
@@ -140,7 +139,6 @@ void LoadBalancer::createTransaction(Connection &connection, const AcceptData &c
 
 void LoadBalancer::startWeightedRoundRobin() {
     std::shared_lock lock{_connections_mutex};
-    lock.lock();
     static auto current = _connections.begin();
     lock.unlock();
 
@@ -178,8 +176,6 @@ void LoadBalancer::startLeastConnections() {
 
         {
             std::shared_lock lock{_connections_mutex};
-
-            lock.lock();
             auto least_used_connection = std::ref(_connections.front());
             for (auto &connection : _connections) {
                 if (connection.ongoing_transactions < least_used_connection.get().ongoing_transactions) {
@@ -204,8 +200,6 @@ void LoadBalancer::startRandom() {
 
         {
             std::shared_lock lock{_connections_mutex};
-
-            lock.lock();
             std::uniform_int_distribution<std::size_t> dist{0, _connections.size() - 1};
             size_t indx = dist(gen);
             lock.unlock();

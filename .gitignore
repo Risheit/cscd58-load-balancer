@@ -41,4 +41,4 @@ build
 .vscode
 
 # Logs
-logs.txt
+*logs.txt

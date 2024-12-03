@@ -18,20 +18,16 @@ TcpClient::TcpClient(std::string ip, int port) : _ip(ip), _port(port) {
 sockets::data TcpClient::query(std::string data) {
     int code;
 
+    // std::cerr << "(debug) sending a request with data...\n" << data << "\n###\n";
+
     const sockets::Socket _socket{sockets::createSocket(), "client"};
     socklen_t addr_len = sizeof(_addr);
 
     code = connect(_socket.fd(), sockets::asGeneric(&_addr), addr_len);
-    if (code < 0) {
-        perror("connect::query()");
-        return std::nullopt;
-    }
+    if (code < 0) { return std::nullopt; }
 
     code = send(_socket.fd(), data.c_str(), data.length(), 0);
-    if (code < 0) {
-        perror("send::query()");
-        return std::nullopt;
-    }
+    if (code < 0) { return std::nullopt; }
 
     return sockets::collect(_socket);
 }

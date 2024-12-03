@@ -51,8 +51,8 @@ from time import sleep
 
 
 class S(BaseHTTPRequestHandler):
-    def __init__(self, speed, name, *args, **kwargs):
-        self.speed = speed
+    def __init__(self, delay, name, *args, **kwargs):
+        self.delay = delay
         self.name = name
         super().__init__(*args, **kwargs)
 
@@ -66,7 +66,7 @@ class S(BaseHTTPRequestHandler):
         in the body. Override, or re-write this do do more interesting stuff.
 
         """
-        sleep(self.speed)
+        sleep(self.delay)
         content = f"<html><body><h1>{message}</h1></body></html>\n"
         return content.encode("utf8")  # NOTE: must return a bytes object!
 
@@ -75,6 +75,7 @@ class S(BaseHTTPRequestHandler):
         self.wfile.write(self._html(f"hi from {self.name}!"))
 
     def do_HEAD(self):
+        print(f"Received a HEAD request.")
         self._set_headers()
 
     def do_POST(self):
@@ -107,8 +108,8 @@ if __name__ == "__main__":
         help="Specify the port on which the server listens",
     )
     parser.add_argument(
-        "-s",
-        "--speed",
+        "-d",
+        "--delay",
         type=int,
         default=0,
         help="Specify in seconds on how long the server takes to respond",
@@ -121,5 +122,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     # https://stackoverflow.com/questions/21631799/how-can-i-pass-parameters-to-a-requesthandler
-    handler = partial(S, args.speed, args.name)
+    handler = partial(S, args.delay, args.name)
     run(addr=args.listen, handler_class=handler, port=args.port)

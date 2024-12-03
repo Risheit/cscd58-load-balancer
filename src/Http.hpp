@@ -8,10 +8,14 @@ namespace ls::http {
 std::string messageHtml(std::string message);
 
 struct Request {
-    [[nodiscard]] std::string construct() const;
+    [[nodiscard]] std::string construct();
+    [[nodiscard]] static inline Request testActiveRequest(std::string host) {
+        return {.method = "HEAD", .host = host, .target = "/", .headers = {}};
+    }
 
 public:
     std::string method;
+    std::string host;
     std::string target;
     std::map<std::string, std::string> headers;
     std::optional<std::string> body;

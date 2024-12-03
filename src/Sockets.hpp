@@ -25,11 +25,11 @@ using Socket = FileDescriptor;
         int len = recv(socket.fd(), received_raw.data(), sizeof(received_raw.data()), 0);
         if (len <= 0) { break; }
 
-        // std::cerr << "(raw) -- packet length " << len << ":\n " << received_raw.data() << "\n###\n";
+        // std::cerr << "(debug) -- packet length " << len << ":\n " << received_raw.data() << "\n###\n";
         received_str.append(received_raw.data(), len);
     };
 
-    // std::cerr << "received: \n" << received_str << "\n###\n";
+    // std::cerr << "(debug) received: \n" << received_str << "\n###\n";
     return received_str;
 }
 

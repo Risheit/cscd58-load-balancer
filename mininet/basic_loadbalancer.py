@@ -46,7 +46,7 @@ def simple_load_balancer(args):
 
     info( f'*** Spinning up webservers on servers (h{args.clients + 1} - h{args.clients + args.servers}) \n')
     for server in servers:
-        server.cmdPrint(f'python ./mininet/server.py -l 0.0.0.0 -p 80 -s {args.delay} {server.name} &')
+        server.cmdPrint(f'python ./mininet/server.py -l 0.0.0.0 -p 80 -d {args.delay} {server.name} &')
 
     info( f'*** Launching load balancer (h{args.clients + args.servers + 1}) \n')
     
@@ -56,7 +56,7 @@ def simple_load_balancer(args):
         arg_list.append('80')
         arg_list.append('1')
     
-    lb.cmdPrint(f'sudo ./build/bin/Load_Balancer --{args.strategy} -p 80 -c 30 ' + ' '.join(arg_list) + ' 2> logs.txt &')
+    lb.cmdPrint(f'sudo ./build/bin/Load_Balancer --{args.strategy} -p 80 -c 30 -t 10 ' + ' '.join(arg_list) + ' 2> logs.txt &')
     
     info( '*** Running CLI\n' )
     CLI( net )

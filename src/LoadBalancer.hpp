@@ -21,13 +21,18 @@ constexpr int accept_timout_ms = 10;
 
 struct Metadata {
     inline static Metadata makeDefault() {
-        return {.weight = 1, .id = -1, .is_inactive = false, .last_refreshed = std::chrono::system_clock::now()};
+        return {.weight = 1,
+                .id = -1,
+                .is_inactive = false,
+                .is_being_tested = false,
+                .last_refreshed = std::chrono::system_clock::now()};
     }
 
 public:
     int weight;
     int id;
     bool is_inactive;
+    bool is_being_tested;
     clock::time_point last_refreshed;
 };
 
@@ -62,7 +67,8 @@ class LoadBalancer {
 public:
     enum class Strategy { WEIGHTED_ROUND_ROBIN, LEAST_CONNECTIONS, RANDOM };
 
-    LoadBalancer(int port, int connections_accepted, int retries, const std::atomic_bool &quitSignal);
+    LoadBalancer(int port, int connections_accepted, int retries, clock::duration stale_timeout,
+                 const std::atomic_bool &quit_signal);
     void addConnections(std::string ip, int port = 80, Metadata metadata = Metadata::makeDefault());
 
 
@@ -72,7 +78,9 @@ public:
 private:
     AcceptData checkForNewQueries();
     void resolveFinishedTransactions();
+    void testServers();
     void createTransaction(Connection &connection, const AcceptData &client_request, int attempted = 0);
+
 
     void startWeightedRoundRobin();
     void startLeastConnections();
@@ -82,12 +90,15 @@ private:
     Server _proxy;
     std::vector<Connection> _connections;
     std::shared_mutex _connections_mutex;
-    const int _retries;
-    const std::atomic_bool &_quit_signal;
     std::vector<Transaction> _transactions;
+    std::vector<Transaction> _personalTransactions;
     std::queue<TransactionFailure> _failures;
     Strategy _strategy = Strategy::WEIGHTED_ROUND_ROBIN;
     std::mt19937 gen{std::random_device{}()};
+
+    const int _retries;
+    const std::atomic_bool &_quit_signal;
+    const clock::duration _stale_timout;
 };
 
 } // namespace ls

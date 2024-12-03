@@ -76,8 +76,8 @@ AcceptData Server::tryAcceptLatest(int timeout) {
 }
 
 bool Server::respond(int remote_fd, std::string response) {
-    std::cerr << "(debug) Responding to query with data...\n";
-    std::cerr << remote_fd << "--" << response << "###\n";
+    std::cerr << "(info) Responding to query made on socket " << remote_fd << " with data...\n";
+    // std::cerr << "(debug) sending data..." << response << "\n###\n";
     ssize_t length_left = response.length();
     ssize_t length_sent = 0;
     while (length_sent != response.length()) {

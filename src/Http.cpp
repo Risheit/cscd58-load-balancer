@@ -1,5 +1,4 @@
 #include "Http.hpp"
-#include <iostream>
 #include <string>
 
 namespace ls::http {
@@ -20,10 +19,11 @@ std::string messageHtml(std::string message) {
 )";
 }
 
-std::string Request::construct() const {
+std::string Request::construct() {
     std::string request;
 
-    const auto startLine = method + " " + target + " HTTP/1.1\n";
+    const auto startLine =
+        method + " " + target + " HTTP/1.1\n" + "Host: " + host + "\nUser-Agent: loadbalancer/1.0.0\nAccept: */*";
     request.append(startLine);
 
     std::string headerString = "";
@@ -40,6 +40,8 @@ std::string Request::construct() const {
         request.append("\n");
         request.append(*body);
     }
+
+    request.append("\r\n\r\n"); // Marks the request as over.
 
     return request;
 }

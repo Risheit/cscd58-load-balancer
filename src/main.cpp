@@ -1,4 +1,5 @@
 #include <atomic>
+#include <chrono>
 #include <csignal>
 #include <cstdlib>
 #include <cstring>
@@ -7,9 +8,13 @@
 #include <string>
 #include "LoadBalancer.hpp"
 
-constexpr int connections_accepted = 5;
-constexpr int port = 40192;
-constexpr int retries = 3;
+using namespace ls;
+using namespace std::chrono_literals;
+
+constexpr int default_connections_accepted = 5;
+constexpr int default_port = 40192;
+constexpr int default_retries = 3;
+constexpr clock::duration default_stale_timeout = 30s;
 
 // Signal handling:
 // https://stackoverflow.com/questions/4250013/is-destructor-called-if-sigint-or-sigstp-issued
@@ -24,7 +29,9 @@ void ensureControlledExit();
 struct SetupArgs {
     static SetupArgs getFlags(int argc, char **argv);
     inline static void printUsageMessage(char **argv) {
-        std::cerr << "Usage: " << argv[0] << " [-p | --port {port}] [-c | --connections {amt}] [strategy] "
+        std::cerr << "Usage: " << argv[0]
+                  << " [-p | --port {port}] [-t | --stale {seconds}] [-r | --retries {amt}] [-c | --connections {amt}] "
+                     "[strategy] "
                   << "{ ip_addr1   port1   weight1 } ... \n \n"
                   << "Valid strategy types: \n"
                   << "\t--robin: Starts the load balancer using a weighted round robin algorithm\n"
@@ -35,15 +42,15 @@ struct SetupArgs {
 public:
     int used_port;
     int connections;
-    ls::LoadBalancer::Strategy strategy;
+    LoadBalancer::Strategy strategy;
+    int retries;
+    clock::duration stale_timeout;
     int starting_arg;
 };
 
 // ------
 
 int main(int argc, char **argv) {
-    using namespace ls;
-
     SetupArgs args;
 
     ensureControlledExit();
@@ -55,7 +62,7 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    LoadBalancer lb{args.used_port, args.connections, retries, quit};
+    LoadBalancer lb{args.used_port, args.connections, args.retries, args.stale_timeout, quit};
     for (int i = args.starting_arg; i < argc; i += 3) {
         try {
             if (i + 2 >= argc) { throw std::invalid_argument{""}; }
@@ -83,18 +90,22 @@ int main(int argc, char **argv) {
 // --- Function Definitions ---
 
 SetupArgs SetupArgs::getFlags(int argc, char **argv) {
-    using Strategy = ls::LoadBalancer::Strategy;
+    using Strategy = LoadBalancer::Strategy;
 
     bool strategy_specified = false;
-    SetupArgs args{.used_port = port,
-                   .connections = connections_accepted,
+    SetupArgs args{.used_port = default_port,
+                   .connections = default_connections_accepted,
                    .strategy = Strategy::WEIGHTED_ROUND_ROBIN,
+                   .retries = default_retries,
+                   .stale_timeout = default_stale_timeout,
                    .starting_arg = 1};
 
     for (int i = 1; i < argc; i++) {
         std::string flag = argv[i];
-
-        if (flag == "-p" || flag == "--port") {
+        if (flag == "-h" || flag == "--help") {
+            printUsageMessage(argv);
+            exit(0);
+        } else if (flag == "-p" || flag == "--port") {
             if (i + 1 >= argc) { throw std::invalid_argument{""}; }
 
             args.used_port = std::stoi(argv[i + 1]);
@@ -106,6 +117,20 @@ SetupArgs SetupArgs::getFlags(int argc, char **argv) {
 
             args.connections = std::stoi(argv[i + 1]);
             if (args.connections < 0) { throw std::invalid_argument{""}; }
+            args.starting_arg += 2;
+            i++;
+        } else if (flag == "-r" || flag == "--retries") {
+            if (i + 1 >= argc) { throw std::invalid_argument{""}; }
+
+            args.retries = std::stoi(argv[i + 1]);
+            if (args.retries < 0) { throw std::invalid_argument{""}; }
+            args.starting_arg += 2;
+            i++;
+        } else if (flag == "-t" || flag == "--stale") {
+            if (i + 1 >= argc) { throw std::invalid_argument{""}; }
+
+            args.stale_timeout = ::std::chrono::seconds(std::stoi(argv[i + 1]));
+            if (args.stale_timeout < 1s) { throw std::invalid_argument{""}; }
             args.starting_arg += 2;
             i++;
         } else if (flag == "--robin" || flag == "--least" || flag == "--random") {

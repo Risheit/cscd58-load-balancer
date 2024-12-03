@@ -65,7 +65,7 @@ The following flags exist on the load balancer. Flags need to be placed before t
  - `-p`, `--port` sets the port the load balancer starts on. The default port is `40192`.
  - `-t`, `--stale` sets the time period of inactivity that a server will go through before the load balancer sends an is alive request. By default, this `30` seconds.
  - `r`, `--retries` sets the amount of times a request to an underlying server that fails is retried on a different server. After this retry amount, an HTTP 503 error is sent back to the client. By default, this is `3`.
- - `c`, `--connections` sets the amount of concurrent connections the local socket the balancer can handle. In the underlying code, it calls `listen(..., connections)` when starting the balancer server. By default, this is 5.
+ - `c`, `--connections` sets the size of the connections backlog the local socket the balancer can handle. In the underlying code, it calls `listen(..., connections)` when starting the balancer server. By default, this is 5.
  - `--robin`, `--least`, `--random` set the strategy being used for load balancing. Only one of these can be present when calling the balancer. By default, this is `--robin`.
     - `--robin` starts the load balancer using a weighted round robin algorithm
     - `--least` starts the load balancer using a least connections algorithm
@@ -116,6 +116,23 @@ optional arguments:
 ```
 
 This begins a Mininet network that starts up a set of `c` clients, `h` servers running the `./mininet/server.py` server, and connects them all to a single switch. All these servers have the same weight of 1, and are named after their host name on Mininet: `hX`, where `X` is some number. 
+
+While here, run `link s1 hX down/up` to test the load balancer in different scenarios.
+
+### Tests (`test_[name].py`)
+These are different mininet configuration styles to test varying load conditions.
+
+```
+optional arguments:
+  -h, --help            show this help message and exit
+  -t STRATEGY, --strategy STRATEGY
+                        The strategy to use. The argument for this option is passed in as [--strategy] to the load balancer.
+
+```
+
+Provide a `strategy` and simulates congestion by running `curl` commands made to the balancer. 
+The file provides clients, hosts, weights. Each client makes 3 `curl` requests in parallel, and each client runs in parrallel.
+In finishes by printing the final out, containing the total, mean, and medium times taken for each client
 
 ## Further Documentation
 See more details on implementation and exploration under the `docs/` directory.

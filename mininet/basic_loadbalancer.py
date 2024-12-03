@@ -7,7 +7,6 @@ from mininet.cli import CLI
 from mininet.log import setLogLevel, info
 
 def simple_load_balancer(args):
-    print(args)
     """Create a topology with clients, servers, and a load balancer all connected up to a single switch.
 
     Args:
@@ -21,11 +20,11 @@ def simple_load_balancer(args):
     net.addController( 'c0' )
 
     info( '*** Adding clients\n' )
-    clients = [net.addHost(f'h{i}', ip=f'10.0.0.{i}') for i in range(1, args.clients + 1)]
+    clients = [net.addHost(f'h{i}') for i in range(1, args.clients + 1)]
     info( '*** Adding servers\n' )
-    servers = [net.addHost(f'h{i}', ip=f'10.0.1.{i}') for i in range(args.clients + 1, args.clients + args.servers + 1)]
+    servers = [net.addHost(f'h{i}') for i in range(args.clients + 1, args.clients + args.servers + 1)]
     info( '*** Adding load balancer\n' )
-    lb = net.addHost(f'h{args.clients + args.servers + 1}', ip='10.0.2.1')
+    lb = net.addHost(f'h{args.clients + args.servers + 1}', ip='10.10.10.10')
 
 
     info( '*** Adding switch\n' )
@@ -56,7 +55,7 @@ def simple_load_balancer(args):
         arg_list.append('80')
         arg_list.append('1')
     
-    lb.cmdPrint(f'sudo ./build/bin/Load_Balancer --{args.strategy} -p 80 -c 30 -t 30 ' + ' '.join(arg_list) + ' 2> logs.txt &')
+    lb.cmdPrint(f'sudo ./build/bin/Load_Balancer --{args.strategy} -p 80 -c 1 -t 30 ' + ' '.join(arg_list) + ' 2> logs.txt &')
     
     info( '*** Running CLI\n' )
     CLI( net )

@@ -56,7 +56,7 @@ def simple_load_balancer(args):
         arg_list.append('80')
         arg_list.append('1')
     
-    lb.cmdPrint(f'sudo ./build/bin/Load_Balancer --{args.strategy} -p 80 -c 30 -t 10 ' + ' '.join(arg_list) + ' 2> logs.txt &')
+    lb.cmdPrint(f'sudo ./build/bin/Load_Balancer --{args.strategy} -p 80 -c 30 -t 30 ' + ' '.join(arg_list) + ' 2> logs.txt &')
     
     info( '*** Running CLI\n' )
     CLI( net )

@@ -136,11 +136,11 @@ SetupArgs SetupArgs::getFlags(int argc, char **argv) {
         } else if (flag == "--robin" || flag == "--least" || flag == "--random") {
             if (strategy_specified) { throw std::invalid_argument{""}; }
 
-            if (flag == "robin")
+            if (flag == "--robin")
                 args.strategy = Strategy::WEIGHTED_ROUND_ROBIN;
-            else if (flag == "least")
+            else if (flag == "--least")
                 args.strategy = Strategy::LEAST_CONNECTIONS;
-            else if (flag == "random")
+            else if (flag == "--random")
                 args.strategy = Strategy::RANDOM;
 
             strategy_specified = true;

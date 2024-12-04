@@ -20,15 +20,15 @@ def simple_load_balancer(args):
     net.addController( 'c0' )
 
     info( '*** Adding clients\n' )
-    clients = [net.addHost(f'h{i}') for i in range(1, args.clients + 1)]
+    clients = [net.addHost(f'h{i + 1}') for i in range(1, args.clients + 1)]
     info( '*** Adding servers\n' )
-    servers = [net.addHost(f'h{i}') for i in range(args.clients + 1, args.clients + args.servers + 1)]
+    servers = [net.addHost(f'h{i + 1}') for i in range(args.clients + 1, args.clients + args.servers + 1)]
     info( '*** Adding load balancer\n' )
-    lb = net.addHost(f'h{args.clients + args.servers + 1}', ip='10.10.10.10')
+    lb = net.addHost(f'h1', ip='10.10.10.10')
 
 
     info( '*** Adding switch\n' )
-    switch = net.addSwitch( 's1', ip=f'10.0.2.1' )
+    switch = net.addSwitch('s1')
 
     info( '*** Creating links\n' )
     for client in clients:
@@ -47,7 +47,7 @@ def simple_load_balancer(args):
     for server in servers:
         server.cmdPrint(f'python ./mininet/server.py -l 0.0.0.0 -p 80 -d {args.delay} {server.name} &')
 
-    info( f'*** Launching load balancer (h{args.clients + args.servers + 1}) \n')
+    info( f'*** Launching load balancer ({lb.name}) \n')
     
     arg_list = []
     for server in servers:

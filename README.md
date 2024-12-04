@@ -20,7 +20,12 @@ Risheit Munshi
 ## Compiling and Running
 This project is written using CMake and C++17. and built to run on the [mininet 2.3.0 VM image](https://github.com/mininet/mininet/releases/tag/2.3.0). Mininet setup scripts and example web servers are written using Python.
 
-CMake is not installed by default on the Mininet VM releases. Please install it manually, or use a [release image](https://github.com/Risheit/cscd58-load-balancer/releases/), which contains all the tools necessary to build the project as well as a copy of the project itself.
+CMake is not installed by default on the Mininet VM releases. Please install it manually through:
+```
+sudo apt update
+sudo apt install cmake 
+```
+
 After installing, and moving to the `cscd58-load-balancer/` directory, make sure to run `git pull origin/main` to fetch the latest version of the repository.
 
 ### Loading the CMake project
@@ -98,6 +103,9 @@ optional arguments:
 ```
 
 Based off the server by [github user bradmontgomery](https://gist.github.com/bradmontgomery/2219997). It provides the option to pass in a delay in seconds, to simulate long running server processes or slow net connections.
+The server can handle GET, HEAD, and POST requests made to it, and responds with dummy html.
+
+By default, the server opens at 0.0.0.0 on port 8000.
 
 ### Basic Load Balancer (`basic_loadbalancer.py`)
 ```
@@ -123,10 +131,11 @@ optional arguments:
 
 This begins a Mininet network that starts up a set of `c` clients, `h` servers running the `./mininet/server.py` server, and connects them all to a single switch. All these servers have the same weight of 1, and are named after their host name on Mininet: `hX`, where `X` is some number. 
 
-While here, run `link s1 hX down/up` to test the load balancer in different scenarios.
+While here, run `link s1 hX down/up` to test the load balancer under different conditions.
+Query the load balancer from some client `hY` through `hY curl h1` or `hY curl 10.10.10.10`. 
 
 ### Tests (`test_[name].py`)
-These are different mininet configuration styles to test varying load conditions.
+These are different mininet configuration styles to test how different strategies function under different load conditions.
 
 ```
 optional arguments:
@@ -137,7 +146,10 @@ optional arguments:
 
 Provide a `strategy` and simulates congestion by running `curl` commands made to the balancer. 
 The file provides clients, hosts, weights. Each client makes 3 `curl` requests in parallel, and each client runs in parrallel.
-In finishes by printing the final out, containing the total, mean, and medium times taken for each client
+In finishes by printing the final out, containing the total, mean, and median times taken for each client.
+
+The available tests are:
+- `test_diff_delay_diff_weights`: Test a series of backing servers, with some servers 
 
 ## Further Documentation
 See more details on implementation and exploration under the `docs/` directory.

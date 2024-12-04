@@ -40,12 +40,12 @@ Compile the executable into the `./build/` directory after the project has been 
 cmake --build build/
 ```
 
-## Running the Executable
+### Running the Executable
 
 The executable is run on the command line, and written into the `./build/bin/` directory. For quick reference on the flags and options you can pass in, pass in the `-h` or `--help` flag.
 
 ```
-./LoadBalancer [-p | --port {port}] [-t | --stale {seconds}] [-r | --retries {amt}] [-c | --connections {amt}] [strategy] { ip_addr1   port1   weight1 } ...
+./LoadBalancer [-p | --port {port}] [-t | --stale {seconds}] [-r | --retries {amt}] [-c | --connections {amt}] [--log LEVEL] [strategy] { ip_addr1   port1   weight1 } ...
 ```
 
 The file takes in servers through command line arguments. For each server you want to the load balancer to listen to, provide:
@@ -64,14 +64,15 @@ For example, the following command would start the balancer redirecting requests
 The following flags exist on the load balancer. Flags need to be placed before the positional arguments to be valid.
  - `-p`, `--port` sets the port the load balancer starts on. The default port is `40192`.
  - `-t`, `--stale` sets the time period of inactivity that a server will go through before the load balancer sends an is alive request. By default, this `30` seconds.
- - `r`, `--retries` sets the amount of times a request to an underlying server that fails is retried on a different server. After this retry amount, an HTTP 503 error is sent back to the client. By default, this is `3`.
- - `c`, `--connections` sets the size of the connections backlog the local socket the balancer can handle. In the underlying code, it calls `listen(..., connections)` when starting the balancer server. By default, this is 5.
+ - `-r`, `--retries` sets the amount of times a request to an underlying server that fails is retried on a different server. After this retry amount, an HTTP 503 error is sent back to the client. By default, this is `3`.
+ - `-c`, `--connections` sets the size of the connections backlog the local socket the balancer can handle. In the underlying code, it calls `listen(..., connections)` when starting the balancer server. By default, this is 5.
+ - `--log` is a number that sets the log level of the balancer. The higher the log level, the more is shown, going from errors > warnings > info > verbose > debug. By default this is `3` for info and below.
  - `--robin`, `--least`, `--random` set the strategy being used for load balancing. Only one of these can be present when calling the balancer. By default, this is `--robin`.
     - `--robin` starts the load balancer using a weighted round robin algorithm
     - `--least` starts the load balancer using a least connections algorithm
     - `--random` starts the load balancer randomly selecting connected servers
 
-## Running the Mininet examples
+### Running the Mininet examples
 The following mininet commands, located under the `./mininet/` directory, are Python scripts. If you run into an issue running them directly, please make sure you have the necessary executable permissions on the file or call them through the python interpreter:
 ```
 python [filename]
@@ -103,6 +104,7 @@ usage: basic_loadbalancer.py [-h] [-c CLIENTS] [-s SERVERS] [-d DELAY] [-t STRAT
 
 Boot up Mininet with a topology with clients, servers, and a load balancer all connected up to a single switch.
 
+```
 optional arguments:
   -h, --help            show this help message and exit
   -c CLIENTS, --clients CLIENTS
@@ -127,7 +129,6 @@ optional arguments:
   -h, --help            show this help message and exit
   -t STRATEGY, --strategy STRATEGY
                         The strategy to use. The argument for this option is passed in as [--strategy] to the load balancer.
-
 ```
 
 Provide a `strategy` and simulates congestion by running `curl` commands made to the balancer. 

@@ -20,7 +20,8 @@ Risheit Munshi
 ## Compiling and Running
 This project is written using CMake and C++17. and built to run on the [mininet 2.3.0 VM image](https://github.com/mininet/mininet/releases/tag/2.3.0). Mininet setup scripts and example web servers are written using Python.
 
-CMake is not installed by default on the Mininet VM releases. Please install it manually,
+CMake is not installed by default on the Mininet VM releases. Please install it manually, or use a [release image](https://github.com/Risheit/cscd58-load-balancer/releases/), which contains all the tools necessary to build the project as well as a copy of the project itself.
+After installing, and moving to the `cscd58-load-balancer/` directory, make sure to run `git pull origin/main` to fetch the latest version of the repository.
 
 ### Loading the CMake project
 Before compilation, the CMake project needs to be loaded. Before beginning, make sure to `cd` to whichever directory you have cloned this repository to.

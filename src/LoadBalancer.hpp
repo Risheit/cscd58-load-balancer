@@ -44,7 +44,7 @@ struct Connection {
 
 struct TransactionFailure {
     int socket_fd;
-    std::string data;
+    std::string request;
     const Connection &connection;
     int attempted;
 };
@@ -69,7 +69,7 @@ public:
 
     LoadBalancer(int port, int connections_accepted, int retries, clock::duration stale_timeout,
                  const std::atomic_bool &quit_signal);
-    void addConnections(std::string ip, int port = 80, Metadata metadata = Metadata::makeDefault());
+    void addConnection(std::string ip, int port = 80, Metadata metadata = Metadata::makeDefault());
 
 
     void use(Strategy strategy);

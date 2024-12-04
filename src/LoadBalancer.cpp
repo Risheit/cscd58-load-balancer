@@ -25,7 +25,7 @@ LoadBalancer::LoadBalancer(int port, int connections_accepted, int retries, cloc
     _proxy(port, connections_accepted),
     _retries(retries), _connections(), _stale_timout(stale_timeout), _quit_signal(quit_signal) {}
 
-void LoadBalancer::addConnections(std::string ip, int port, Metadata metadata) {
+void LoadBalancer::addConnection(std::string ip, int port, Metadata metadata) {
     static int unique_id = 1;
     if (metadata.id == -1) { metadata.id = unique_id++; }
 
@@ -37,17 +37,16 @@ void LoadBalancer::addConnections(std::string ip, int port, Metadata metadata) {
 }
 
 void LoadBalancer::use(Strategy strategy) {
-    std::cerr << out::info << "load balancer is set to ";
+    std::cerr << out::info << "load balancer is set to ...\n";
     if (strategy == Strategy::WEIGHTED_ROUND_ROBIN) {
-        std::cerr << out::info << "WEIGHTED ROUND ROBIN";
+        std::cerr << out::info << "\tWEIGHTED ROUND ROBIN\n";
     } else if (strategy == Strategy::LEAST_CONNECTIONS) {
-        std::cerr << out::info << "LEAST CONNECTIONS";
+        std::cerr << out::info << "\tLEAST CONNECTIONS\n";
     } else if (strategy == Strategy::RANDOM) {
-        std::cerr << out::info << "RANDOM";
+        std::cerr << out::info << "\tRANDOM\n";
     } else {
-        std::cerr << out::info << "UNKNOWN";
+        std::cerr << out::info << "\tUNKNOWN\n";
     }
-    std::cerr << out::info << "\n";
     _strategy = strategy;
 }
 
@@ -68,7 +67,7 @@ TransactionResult queryClient(std::shared_mutex &mutex, Connection &connection,
 
         std::unique_lock lock{mutex};
         auto &[client, metadata, ongoing_transactions] = connection;
-        std::cerr << out::info << std::boolalpha << "querying server " << metadata.id << " (weight: " << metadata.weight
+        std::cerr << out::verb << std::boolalpha << "querying server " << metadata.id << " (weight: " << metadata.weight
                   << ", is active?: " << !metadata.is_inactive << ")\n";
         ongoing_transactions++;
         metadata.last_refreshed = clock::now();
@@ -106,7 +105,8 @@ void LoadBalancer::resolveFinishedTransactions() {
                 std::cerr << out::info << "failed to get data \n";
                 _proxy.respond(remote_fd, http::Response::respond503().construct());
             } else {
-                std::cerr << out::info << "attempting to retry the response (" << attempted << "<" << _retries << ")\n";
+                std::cerr << out::debug << "attempting to retry the response (" << attempted << "<" << _retries
+                          << ")\n";
                 connection.metadata.is_inactive = true;
                 _failures.push({remote_fd, request.value(), connection, attempted});
             }
@@ -222,7 +222,7 @@ void LoadBalancer::startWeightedRoundRobin() {
 
         if (!_failures.empty()) {
             auto &[socket_fd, data, connection, attempted] = _failures.front();
-            std::cerr << out::info << "retrying a request... made to " << connection.metadata.id << "\n";
+            std::cerr << out::info << "retrying a request made to " << connection.metadata.id << "...\n";
             AcceptData request{data, socket_fd};
             createTransaction(*current, request, attempted + 1);
             _failures.pop();
@@ -262,8 +262,23 @@ void LoadBalancer::startLeastConnections() {
         resolveFinishedTransactions();
         testServers();
 
-        const auto client_request = checkForNewQueries();
-        if (!client_request.data.has_value()) { continue; }
+        AcceptData request;
+        int attempt_number = 0;
+        {
+            std::shared_lock lock{_connections_mutex};
+            if (!_failures.empty()) {
+                auto &[socket_fd, data, connection, attempted] = _failures.front();
+                std::cerr << out::debug << "Setting up the request\n";
+                request = {data, socket_fd};
+                attempt_number = attempted + 1;
+                _failures.pop();
+            } else {
+                request = checkForNewQueries();
+            }
+        }
+
+
+        if (!request.data.has_value()) { continue; }
 
         {
             std::shared_lock lock{_connections_mutex};
@@ -271,13 +286,14 @@ void LoadBalancer::startLeastConnections() {
             for (auto &connection : _connections) {
                 if (connection.metadata.is_inactive) { continue; }
 
-                if (connection.ongoing_transactions < least_used_connection.get().ongoing_transactions) {
-                    least_used_connection = std::ref(connection);
-                }
+                bool least_is_inactive = least_used_connection.get().metadata.is_inactive;
+                bool current_is_least =
+                    connection.ongoing_transactions < least_used_connection.get().ongoing_transactions;
+                if (least_is_inactive || current_is_least) { least_used_connection = std::ref(connection); }
             }
             lock.unlock();
 
-            createTransaction(least_used_connection, client_request);
+            createTransaction(least_used_connection, request, attempt_number);
         }
     }
 }
@@ -289,9 +305,22 @@ void LoadBalancer::startRandom() {
         resolveFinishedTransactions();
         testServers();
 
-        const auto client_request = checkForNewQueries();
-        if (!client_request.data.has_value()) { continue; }
+        AcceptData request;
+        int attempt_number = 0;
+        {
+            std::shared_lock lock{_connections_mutex};
+            if (!_failures.empty()) {
+                auto &[socket_fd, data, connection, attempted] = _failures.front();
+                std::cerr << out::debug << "Setting up the request\n";
+                request = {data, socket_fd};
+                attempt_number = attempted + 1;
+                _failures.pop();
+            } else {
+                request = checkForNewQueries();
+            }
+        }
 
+        if (!request.data.has_value()) { continue; }
 
         // Indexes of elements from fill from 0 to size - 1;
         std::vector<int> connections_indexes(_connections.size());
@@ -304,7 +333,7 @@ void LoadBalancer::startRandom() {
                                            [](const Connection &c) { return !c.metadata.is_inactive; });
             lock.unlock();
 
-            createTransaction(*connection, client_request);
+            createTransaction(*connection, request, attempt_number);
         }
     }
 }

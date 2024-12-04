@@ -2,7 +2,6 @@
 #include <map>
 #include <memory>
 #include <netinet/in.h>
-#include <optional>
 #include <poll.h>
 #include "Sockets.hpp"
 

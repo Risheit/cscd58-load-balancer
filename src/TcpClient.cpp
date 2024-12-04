@@ -21,16 +21,32 @@ sockets::data TcpClient::query(std::string data) {
 
     std::cerr << out::debug << "sending a request with data...\n" << data << "\n###\n";
 
-    const sockets::Socket _socket{sockets::createSocket(), "client"};
+    const sockets::Socket socket{sockets::createSocket(), "client"};
+
+    int optval; // This is thrown away
+    code = setsockopt(socket.fd(), SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &optval, sizeof(optval));
+    timeval timeout{.tv_sec = 10, .tv_usec = 0};
+    code = setsockopt(socket.fd(), SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+    if (code != 0) {
+        std::cerr << out::err << "Failed to setup server socket: " << std::strerror(errno) << "\n";
+        throw std::runtime_error(std::strerror(errno));
+    }
     socklen_t addr_len = sizeof(_addr);
 
-    code = connect(_socket.fd(), sockets::asGeneric(&_addr), addr_len);
+    code = setsockopt(socket.fd(), SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &optval, sizeof(optval));
+    timeout = {.tv_sec = 60, .tv_usec = 0};
+    code = setsockopt(socket.fd(), SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+    if (code != 0) {
+        std::cerr << out::err << "Failed to setup server socket: " << std::strerror(errno) << "\n";
+        throw std::runtime_error(std::strerror(errno));
+    }
+    code = connect(socket.fd(), sockets::asGeneric(&_addr), addr_len);
     if (code < 0) { return std::nullopt; }
 
-    code = send(_socket.fd(), data.c_str(), data.length(), 0);
+    code = send(socket.fd(), data.c_str(), data.length(), 0);
     if (code < 0) { return std::nullopt; }
 
-    return sockets::collect(_socket);
+    return sockets::collect(socket);
 }
 
 } // namespace ls

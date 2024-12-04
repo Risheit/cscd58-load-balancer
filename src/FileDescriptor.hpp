@@ -3,7 +3,9 @@
 #include <string>
 namespace ls {
 
-struct FileDescriptor {
+class FileDescriptor {
+
+public:
     FileDescriptor(int fd, std::string name = "fd");
     ~FileDescriptor();
 

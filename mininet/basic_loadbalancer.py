@@ -55,7 +55,7 @@ def simple_load_balancer(args):
         arg_list.append('80')
         arg_list.append('1')
     
-    lb.cmdPrint(f'sudo ./build/bin/Load_Balancer --{args.strategy} -p 80 -c 1 -t 30 ' + ' '.join(arg_list) + ' 2> logs.txt &')
+    lb.cmdPrint(f'sudo ./build/bin/Load_Balancer --{args.strategy} -p 80 -c 30 --stale {args.stale} --log {args.log} ' + ' '.join(arg_list) + ' 2> logs.txt &')
     
     info( '*** Running CLI\n' )
     CLI( net )
@@ -90,13 +90,25 @@ if __name__ == '__main__':
         + "The argument for this option is passed in as [-s DELAY] to the servers.",
     )
     parser.add_argument(
-        "-t",
+        "-r",
         "--strategy",
         type=str,
         default="robin",
         help="The strategy to use. The argument for this option is passed in as [--strategy] to the load balancer."
     )
-    
+    parser.add_argument(
+        "-t",
+        "--stale",
+        type=int,
+        default=60,
+        help="Timeout before the balancer checks if a server is active."
+    )
+    parser.add_argument(
+        "--log",
+        type=int,
+        default=3,
+        help="The logging level of the balancer."
+    )
     args = parser.parse_args()
     
     setLogLevel( 'info' )

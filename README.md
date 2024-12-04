@@ -100,11 +100,10 @@ Based off the server by [github user bradmontgomery](https://gist.github.com/bra
 
 ### Basic Load Balancer (`basic_loadbalancer.py`)
 ```
-usage: basic_loadbalancer.py [-h] [-c CLIENTS] [-s SERVERS] [-d DELAY] [-t STRATEGY]
+usage: basic_loadbalancer.py [-h] [-c CLIENTS] [-s SERVERS] [-d DELAY] [-r STRATEGY] [-t STALE] [--log LOG]
 
 Boot up Mininet with a topology with clients, servers, and a load balancer all connected up to a single switch.
 
-```
 optional arguments:
   -h, --help            show this help message and exit
   -c CLIENTS, --clients CLIENTS
@@ -112,9 +111,13 @@ optional arguments:
   -s SERVERS, --servers SERVERS
                         Specify the server on which the server listens.
   -d DELAY, --delay DELAY
-                        Specify in seconds on how long the each server takes to respond.The argument for this option is passed in as [-s DELAY] to the servers.
-  -t STRATEGY, --strategy STRATEGY
+                        Specify in seconds on how long the each server takes to respond.The argument for this option is passed in as
+                        [-s DELAY] to the servers.
+  -r STRATEGY, --strategy STRATEGY
                         The strategy to use. The argument for this option is passed in as [--strategy] to the load balancer.
+  -t STALE, --stale STALE
+                        Timeout before the balancer checks if a server is active.
+  --log LOG             The logging level of the balancer.
 ```
 
 This begins a Mininet network that starts up a set of `c` clients, `h` servers running the `./mininet/server.py` server, and connects them all to a single switch. All these servers have the same weight of 1, and are named after their host name on Mininet: `hX`, where `X` is some number. 

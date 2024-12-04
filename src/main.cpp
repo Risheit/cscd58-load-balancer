@@ -76,7 +76,7 @@ int main(int argc, char **argv) {
 
             auto metadata = Metadata::makeDefault();
             metadata.weight = weight;
-            lb.addConnections(forward_ip, forward_port, metadata);
+            lb.addConnection(forward_ip, forward_port, metadata);
         } catch (std::logic_error e) {
             std::cerr << out::err << e.what() << "\n";
             SetupArgs::printUsageMessage(argv);
@@ -115,7 +115,7 @@ SetupArgs SetupArgs::getFlags(int argc, char **argv) {
         if (flag == "-h" || flag == "--help") {
             printUsageMessage(argv);
             exit(0);
-        } else if (flag == "-l" || flag == "--log") {
+        } else if (flag == "--log") {
             if (i + 1 >= argc) { throw std::invalid_argument{"No argument for flag given"}; }
 
             out::level = getIntMinBounded(argv[i + 1]);

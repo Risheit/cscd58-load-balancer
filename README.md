@@ -26,8 +26,8 @@ CMake is not installed by default on the Mininet VM releases. Please install it 
 Before compilation, the CMake project needs to be loaded. Before beginning, make sure to `cd` to whichever directory you have cloned this repository to.
 
 This step needs to be performed:
- - During the initial setup process, after cloning the repository
- - Whenever any `CMakeLists.txt` files are modified
+- During the initial setup process, after cloning the repository
+- Whenever any `CMakeLists.txt` files are modified
 
 The following command loads the CMake project, creating the necessary Makefiles to compile and writing to the `./build/` directory.
 ```
@@ -49,28 +49,28 @@ The executable is run on the command line, and written into the `./build/bin/` d
 ```
 
 The file takes in servers through command line arguments. For each server you want to the load balancer to listen to, provide:
- - An IP address of a valid format (for example, `10.0.0.1`)
- - A valid port number for the service (for example, `80`)
- - The weight of the server. This is used in the weighted round-robin load balancing strategy. This is a positive number corresponding to how many requests will be sent to that server before routing to a different one. This should be a positive number (although a weight of 0 means that the server will never be routed to).
+- An IP address of a valid format (for example, `10.0.0.1`)
+- A valid port number for the service (for example, `80`)
+- The weight of the server. This is used in the weighted round-robin load balancing strategy. This is a positive number corresponding to how many requests will be sent to that server before routing to a different one. This should be a positive number (although a weight of 0 means that the server will never be routed to).
 
 For example, the following command would start the balancer redirecting requests to the servers:
- - at `10.0.0.1` on port 80, with a weight of 1.
- - at `10.0.0.2` on port 443, with a weight of 4.
+- at `10.0.0.1` on port 80, with a weight of 1.
+- at `10.0.0.2` on port 443, with a weight of 4.
 
 ```
 ./LoadBalancer 10.0.0.1 80 1 10.0.0.2 443 4
 ```
 
 The following flags exist on the load balancer. Flags need to be placed before the positional arguments to be valid.
- - `-p`, `--port` sets the port the load balancer starts on. The default port is `40192`.
- - `-t`, `--stale` sets the time period of inactivity that a server will go through before the load balancer sends an is alive request. By default, this `30` seconds.
- - `-r`, `--retries` sets the amount of times a request to an underlying server that fails is retried on a different server. After this retry amount, an HTTP 503 error is sent back to the client. By default, this is `3`.
- - `-c`, `--connections` sets the size of the connections backlog the local socket the balancer can handle. In the underlying code, it calls `listen(..., connections)` when starting the balancer server. By default, this is 5.
- - `--log` is a number that sets the log level of the balancer. The higher the log level, the more is shown, going from errors > warnings > info > verbose > debug. By default this is `3` for info and below.
- - `--robin`, `--least`, `--random` set the strategy being used for load balancing. Only one of these can be present when calling the balancer. By default, this is `--robin`.
-    - `--robin` starts the load balancer using a weighted round robin algorithm
-    - `--least` starts the load balancer using a least connections algorithm
-    - `--random` starts the load balancer randomly selecting connected servers
+- `-p`, `--port` sets the port the load balancer starts on. The default port is `40192`.
+- `-t`, `--stale` sets the time period of inactivity that a server will go through before the load balancer sends an is alive request. By default, this is `30` seconds.
+- `-r`, `--retries` sets the amount of times a request to an underlying server that fails is retried on a different server. After this retry amount, an HTTP 503 error is sent back to the client. By default, this is retry amount is `3`.
+- `-c`, `--connections` sets the size of the connections backlog the local socket the balancer can handle. In the underlying code, it calls `listen(..., connections)` when starting the balancer server. By default, this is 5.
+- `--log` is a number that sets the log level of the balancer. The higher the log level, the more is shown, going from errors > warnings > info > verbose > debug. By default this is `3` (showing errors, warnings, and info logs).
+- `--robin`, `--least`, `--random` set the strategy being used for load balancing. Only one of these can be present when calling the balancer. By default, this is `--robin`.
+  - `--robin` starts the load balancer using a weighted round robin algorithm
+  - `--least` starts the load balancer using a least connections algorithm
+  - `--random` starts the load balancer randomly selecting connected servers
 
 ### Running the Mininet examples
 The following mininet commands, located under the `./mininet/` directory, are Python scripts. If you run into an issue running them directly, please make sure you have the necessary executable permissions on the file or call them through the python interpreter:

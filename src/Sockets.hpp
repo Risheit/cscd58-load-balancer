@@ -1,3 +1,6 @@
+// Sockets.hpp is a header file containing several simple utility files and type aliases for handling sockets. The
+// Sockets datatype itself is just an alias for the FileDescriptor type, the type existing for clarity purposes.
+
 #pragma once
 
 #include <array>
@@ -10,6 +13,7 @@
 #include "Log.hpp"
 
 namespace ls::sockets {
+
 constexpr int max_msg_chars = 8192;
 
 using data = std::optional<std::string>;

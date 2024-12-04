@@ -44,7 +44,7 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.    
 
 """
-from argparse import ArgumentParser
+from argparse import ArgumentParser, ArgumentTypeError
 from functools import partial
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from time import sleep
@@ -90,6 +90,11 @@ def run(server_class=HTTPServer, handler_class=S, addr="0.0.0.0", port=80):
     print(f"Starting httpd server on {addr}:{port}")
     httpd.serve_forever()
 
+def check_clamped(min, max, value):
+    ivalue = int(value)
+    if ivalue < min or ivalue > max:
+        raise ArgumentTypeError(f"value is not within {min} and {max}")
+    return ivalue
 
 if __name__ == "__main__":
 
@@ -110,7 +115,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-d",
         "--delay",
-        type=int,
+        type=partial(check_clamped, 0, 55),
         default=0,
         help="Specify in seconds on how long the server takes to respond",
     )
@@ -121,6 +126,5 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     
-    # https://stackoverflow.com/questions/21631799/how-can-i-pass-parameters-to-a-requesthandler
     handler = partial(S, args.delay, args.name)
     run(addr=args.listen, handler_class=handler, port=args.port)

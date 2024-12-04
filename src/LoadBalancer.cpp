@@ -143,24 +143,23 @@ void LoadBalancer::testServers() {
     using namespace std::chrono_literals;
 
     bool runs_testing = false;
-    {
+
+    for (auto &connection : _connections) {
         std::shared_lock lock{_connections_mutex};
 
-        for (auto &connection : _connections) {
-            auto &[client, metadata, ongoing_transactions] = connection;
-            const auto last_accessed = clock::now() - metadata.last_refreshed;
-            if (last_accessed >= _stale_timout && !metadata.is_being_tested) {
-                metadata.is_being_tested = true;
-                runs_testing = true;
-                const auto host = client.address();
-                const AcceptData is_active_request{.data = http::Request::testActiveRequest(host).construct(),
-                                                   .remote_fd = -1};
+        auto &[client, metadata, ongoing_transactions] = connection;
+        const auto last_accessed = clock::now() - metadata.last_refreshed;
+        if (last_accessed >= _stale_timout && !metadata.is_being_tested) {
+            metadata.is_being_tested = true;
+            runs_testing = true;
+            const auto host = client.address();
+            const AcceptData is_active_request{.data = http::Request::isActiveRequest(host).construct(),
+                                               .remote_fd = -1};
 
-                // Creates a new thread to query the server
-                auto transaction = std::async(std::launch::async, &ls::queryClient, std::ref(_connections_mutex),
-                                              std::ref(connection), is_active_request);
-                _personalTransactions.push_back({std::move(transaction), clock::now(), is_active_request.data});
-            }
+            // Creates a new thread to query the server
+            auto transaction = std::async(std::launch::async, &ls::queryClient, std::ref(_connections_mutex),
+                                          std::ref(connection), is_active_request);
+            _personalTransactions.push_back({std::move(transaction), clock::now(), is_active_request.data});
         }
     }
 

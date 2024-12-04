@@ -17,8 +17,8 @@ constexpr int default_port = 40192;
 constexpr int default_retries = 3;
 constexpr clock::duration default_stale_timeout = 30s;
 
-// Signal handling:
-// https://stackoverflow.com/questions/4250013/is-destructor-called-if-sigint-or-sigstp-issued
+// Signal handling code based on:
+// https://stackoverflow.com/a/4250601
 std::atomic_bool panic{false};
 std::atomic_bool quit{false}; // signal flag
 
@@ -108,8 +108,8 @@ SetupArgs SetupArgs::getFlags(int argc, char **argv) {
                    .stale_timeout = default_stale_timeout,
                    .starting_arg = 1};
 
-    // Giant if-else statements don't look that great, but they're easy to setup and are good at handling flag-specific
-    // edge cases.
+    // Giant if-else statements don't look that great, but they're easy to setup and are good at handling
+    // flag-specific edge cases.
     for (int i = 1; i < argc; i++) {
         std::string flag = argv[i];
         if (flag == "-h" || flag == "--help") {

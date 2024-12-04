@@ -1,3 +1,5 @@
+// Absolute barebones HTTP handler. It does what it needs, and no more.
+
 #pragma once
 
 #include <map>
@@ -9,7 +11,7 @@ std::string messageHtml(std::string message);
 
 struct Request {
     [[nodiscard]] std::string construct();
-    [[nodiscard]] static inline Request testActiveRequest(std::string host) {
+    [[nodiscard]] static inline Request isActiveRequest(std::string host) {
         return {.method = "HEAD", .host = host, .target = "/", .headers = {}};
     }
 

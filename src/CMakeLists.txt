@@ -14,6 +14,7 @@ SET(COMPILATION_FILES
         "Http.hpp"
         "Http.cpp"
         "Log.hpp"
+        "Log.cpp"
 )
 
 add_executable(${CMAKE_PROJECT_NAME} ${COMPILATION_FILES})

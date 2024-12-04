@@ -60,6 +60,7 @@ int main(int argc, char **argv) {
     try {
         args = SetupArgs::getFlags(argc, argv);
     } catch (std::logic_error e) {
+        std::cerr << out::err << e.what() << "\n";
         SetupArgs::printUsageMessage(argv);
         return 1;
     }
@@ -67,7 +68,7 @@ int main(int argc, char **argv) {
     LoadBalancer lb{args.used_port, args.connections, args.retries, args.stale_timeout, quit};
     for (int i = args.starting_arg; i < argc; i += 3) {
         try {
-            if (i + 2 >= argc) { throw std::invalid_argument{""}; }
+            if (i + 2 >= argc) { throw std::invalid_argument{"Given connection is malformed"}; }
 
             std::string forward_ip = argv[i];
             int forward_port = std::stoi(argv[i + 1]);
@@ -77,7 +78,7 @@ int main(int argc, char **argv) {
             metadata.weight = weight;
             lb.addConnections(forward_ip, forward_port, metadata);
         } catch (std::logic_error e) {
-            std::cerr << out::err << "Given connection is malformed.\n";
+            std::cerr << out::err << e.what() << "\n";
             SetupArgs::printUsageMessage(argv);
             return 1;
         }
@@ -90,6 +91,11 @@ int main(int argc, char **argv) {
 }
 
 // --- Function Definitions ---
+int getIntMinBounded(std::string s, int min = 0) {
+    int val = std::stoi(s);
+    if (val < min) { throw std::invalid_argument{s + " can't be less than " + std::to_string(min)}; }
+    return val;
+}
 
 SetupArgs SetupArgs::getFlags(int argc, char **argv) {
     using Strategy = LoadBalancer::Strategy;
@@ -102,48 +108,45 @@ SetupArgs SetupArgs::getFlags(int argc, char **argv) {
                    .stale_timeout = default_stale_timeout,
                    .starting_arg = 1};
 
+    // Giant if-else statements don't look that great, but they're easy to setup and are good at handling flag-specific
+    // edge cases.
     for (int i = 1; i < argc; i++) {
         std::string flag = argv[i];
         if (flag == "-h" || flag == "--help") {
             printUsageMessage(argv);
             exit(0);
         } else if (flag == "-l" || flag == "--log") {
-            if (i + 1 >= argc) { throw std::invalid_argument{""}; }
+            if (i + 1 >= argc) { throw std::invalid_argument{"No argument for flag given"}; }
 
-            out::level = std::stoi(argv[i + 1]);
-            if (out::level < 0) { throw std::invalid_argument{""}; }
+            out::level = getIntMinBounded(argv[i + 1]);
             args.starting_arg += 2;
             i++;
         } else if (flag == "-p" || flag == "--port") {
-            if (i + 1 >= argc) { throw std::invalid_argument{""}; }
+            if (i + 1 >= argc) { throw std::invalid_argument{"No argument for flag given"}; }
 
-            args.used_port = std::stoi(argv[i + 1]);
-            if (args.used_port < 0) { throw std::invalid_argument{""}; }
+            args.used_port = getIntMinBounded(argv[i + 1]);
             args.starting_arg += 2;
             i++;
         } else if (flag == "-c" || flag == "--connections") {
-            if (i + 1 >= argc) { throw std::invalid_argument{""}; }
+            if (i + 1 >= argc) { throw std::invalid_argument{"No argument for flag given"}; }
 
-            args.connections = std::stoi(argv[i + 1]);
-            if (args.connections < 0) { throw std::invalid_argument{""}; }
+            args.connections = getIntMinBounded(argv[i + 1]);
             args.starting_arg += 2;
             i++;
         } else if (flag == "-r" || flag == "--retries") {
-            if (i + 1 >= argc) { throw std::invalid_argument{""}; }
+            if (i + 1 >= argc) { throw std::invalid_argument{"No argument for flag given"}; }
 
-            args.retries = std::stoi(argv[i + 1]);
-            if (args.retries < 0) { throw std::invalid_argument{""}; }
+            args.retries = getIntMinBounded(argv[i + 1]);
             args.starting_arg += 2;
             i++;
         } else if (flag == "-t" || flag == "--stale") {
-            if (i + 1 >= argc) { throw std::invalid_argument{""}; }
+            if (i + 1 >= argc) { throw std::invalid_argument{"No argument for flag given"}; }
 
-            args.stale_timeout = ::std::chrono::seconds(std::stoi(argv[i + 1]));
-            if (args.stale_timeout < 1s) { throw std::invalid_argument{""}; }
+            args.stale_timeout = std::chrono::seconds(getIntMinBounded(argv[i + 1], 1));
             args.starting_arg += 2;
             i++;
         } else if (flag == "--robin" || flag == "--least" || flag == "--random") {
-            if (strategy_specified) { throw std::invalid_argument{""}; }
+            if (strategy_specified) { throw std::invalid_argument{"multiple strategies specified"}; }
 
             if (flag == "--robin")
                 args.strategy = Strategy::WEIGHTED_ROUND_ROBIN;

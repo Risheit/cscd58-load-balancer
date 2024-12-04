@@ -13,6 +13,7 @@ SET(COMPILATION_FILES
         "LoadBalancer.cpp"
         "Http.hpp"
         "Http.cpp"
+        "Log.hpp"
 )
 
 add_executable(${CMAKE_PROJECT_NAME} ${COMPILATION_FILES})

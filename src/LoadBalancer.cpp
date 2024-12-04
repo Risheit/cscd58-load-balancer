@@ -13,6 +13,7 @@
 #include <string>
 #include <vector>
 #include "Http.hpp"
+#include "Log.hpp"
 #include "Server.hpp"
 #include "TcpClient.hpp"
 
@@ -32,21 +33,21 @@ void LoadBalancer::addConnections(std::string ip, int port, Metadata metadata) {
         std::scoped_lock lock{_connections_mutex};
         _connections.push_back({TcpClient{ip, port}, metadata});
     }
-    std::cerr << "(info) Added a new server: (id: " << metadata.id << ", weight: " << metadata.weight << ")\n";
+    std::cerr << out::info << "Added a new server: (id: " << metadata.id << ", weight: " << metadata.weight << ")\n";
 }
 
 void LoadBalancer::use(Strategy strategy) {
-    std::cerr << "(info) load balancer is set to ";
+    std::cerr << out::info << "load balancer is set to ";
     if (strategy == Strategy::WEIGHTED_ROUND_ROBIN) {
-        std::cerr << "WEIGHTED ROUND ROBIN";
+        std::cerr << out::info << "WEIGHTED ROUND ROBIN";
     } else if (strategy == Strategy::LEAST_CONNECTIONS) {
-        std::cerr << "LEAST CONNECTIONS";
+        std::cerr << out::info << "LEAST CONNECTIONS";
     } else if (strategy == Strategy::RANDOM) {
-        std::cerr << "RANDOM";
+        std::cerr << out::info << "RANDOM";
     } else {
-        std::cerr << "UNKNOWN";
+        std::cerr << out::info << "UNKNOWN";
     }
-    std::cerr << "\n";
+    std::cerr << out::info << "\n";
     _strategy = strategy;
 }
 
@@ -67,7 +68,7 @@ TransactionResult queryClient(std::shared_mutex &mutex, Connection &connection,
 
         std::unique_lock lock{mutex};
         auto &[client, metadata, ongoing_transactions] = connection;
-        std::cerr << std::boolalpha << "(info): querying server " << metadata.id << " (weight: " << metadata.weight
+        std::cerr << out::info << std::boolalpha << "querying server " << metadata.id << " (weight: " << metadata.weight
                   << ", is active?: " << !metadata.is_inactive << ")\n";
         ongoing_transactions++;
         metadata.last_refreshed = clock::now();
@@ -102,10 +103,10 @@ void LoadBalancer::resolveFinishedTransactions() {
             connection.metadata.is_inactive = false;
         } else {
             if (attempted > _retries) {
-                std::cerr << "(info) failed to get data \n";
+                std::cerr << out::info << "failed to get data \n";
                 _proxy.respond(remote_fd, http::Response::respond503().construct());
             } else {
-                std::cerr << "(info) attempting to retry the response (" << attempted << "<" << _retries << ")\n";
+                std::cerr << out::info << "attempting to retry the response (" << attempted << "<" << _retries << ")\n";
                 connection.metadata.is_inactive = true;
                 _failures.push({remote_fd, request.value(), connection, attempted});
             }
@@ -164,7 +165,7 @@ void LoadBalancer::testServers() {
     }
 
     if (runs_testing) {
-        std::cerr << std::boolalpha << "(info): running standard check to test if servers are active...\n";
+        std::cerr << out::verb << std::boolalpha << "running standard check to test if servers are active...\n";
     }
 
     for (auto &transaction : _personalTransactions) {
@@ -179,16 +180,16 @@ void LoadBalancer::testServers() {
         std::unique_lock lock{mutex};
 
         connection.metadata.is_being_tested = false;
-        std::cerr << "(info) test for server " << connection.metadata.id << " complete...\n";
+        std::cerr << out::verb << "test for server " << connection.metadata.id << " complete...\n";
         if (response_string.has_value()) {
             if (connection.metadata.is_inactive) {
-                std::cerr << "(info) The inactive server " << connection.metadata.id
+                std::cerr << out::info << "The inactive server " << connection.metadata.id
                           << " responded to a activity check. Marking it as active...\n";
             }
             connection.metadata.is_inactive = false;
         } else {
             if (!connection.metadata.is_inactive) {
-                std::cerr << "(info) The active server " << connection.metadata.id
+                std::cerr << out::info << "The active server " << connection.metadata.id
                           << " didn't respond to a regular check. Marking it as inactive...\n";
             }
             connection.metadata.is_inactive = true;
@@ -221,7 +222,7 @@ void LoadBalancer::startWeightedRoundRobin() {
 
         if (!_failures.empty()) {
             auto &[socket_fd, data, connection, attempted] = _failures.front();
-            std::cerr << "(info) retrying a request... made to " << connection.metadata.id << "###\n";
+            std::cerr << out::info << "retrying a request... made to " << connection.metadata.id << "\n";
             AcceptData request{data, socket_fd};
             createTransaction(*current, request, attempted + 1);
             _failures.pop();

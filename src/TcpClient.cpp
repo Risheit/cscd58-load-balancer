@@ -5,6 +5,7 @@
 #include <netinet/in.h>
 #include <string>
 #include <sys/socket.h>
+#include "Log.hpp"
 #include "Sockets.hpp"
 
 namespace ls {
@@ -18,7 +19,7 @@ TcpClient::TcpClient(std::string ip, int port) : _ip(ip), _port(port) {
 sockets::data TcpClient::query(std::string data) {
     int code;
 
-    // std::cerr << "(debug) sending a request with data...\n" << data << "\n###\n";
+    std::cerr << out::debug << "sending a request with data...\n" << data << "\n###\n";
 
     const sockets::Socket _socket{sockets::createSocket(), "client"};
     socklen_t addr_len = sizeof(_addr);

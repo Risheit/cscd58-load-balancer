@@ -8,6 +8,7 @@
 #include <memory>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include "Log.hpp"
 #include "Sockets.hpp"
 
 namespace ls {
@@ -20,7 +21,8 @@ Server::Server(int port, int connections_accepted) :
 
     int code;
 
-    std::cout << "Setting up server... Port: " << port << " Connections accepted: " << connections_accepted << "\n";
+    std::cerr << out::info << "setting up server... Port: " << port << " Connections accepted: " << connections_accepted
+              << "\n";
 
     _addr.sin_family = AF_INET;
     _addr.sin_addr.s_addr = INADDR_ANY;
@@ -32,19 +34,19 @@ Server::Server(int port, int connections_accepted) :
     timeval timeout{.tv_sec = 0, .tv_usec = 1};
     code = setsockopt(_socket.fd(), SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
     if (code != 0) {
-        perror("setsockopt::Server()");
+        std::cerr << out::err << "Failed to setup server socket: " << std::strerror(errno) << "\n";
         throw std::runtime_error(std::strerror(errno));
     }
 
     code = bind(_socket.fd(), sockets::asGeneric(&_addr), addr_len);
     if (code != 0) {
-        perror("bind::Server()");
+        std::cerr << out::err << "Failed to bind to server socket: " << std::strerror(errno) << "\n";
         throw std::runtime_error(std::strerror(errno));
     }
 
     code = listen(_socket.fd(), connections_accepted);
     if (code != 0) {
-        perror("listen::Server()");
+        std::cerr << out::err << "Failed to listen to server socket: " << std::strerror(errno) << "\n";
         throw std::runtime_error(std::strerror(errno));
     }
 }
@@ -59,7 +61,7 @@ AcceptData Server::tryAcceptLatest(int timeout) {
     code = poll(&connection, num_sockets, timeout);
     if (code <= 0) { return {.remote_fd = -1}; }
 
-    std::cout << "Connected~\n";
+    std::cerr << out::debug << "Connected~\n";
 
     socklen_t addr_len = sizeof(_addr);
     const int remoteFd = accept4(connection.fd, asGeneric(&_addr), &addr_len, 0);
@@ -76,15 +78,18 @@ AcceptData Server::tryAcceptLatest(int timeout) {
 }
 
 bool Server::respond(int remote_fd, std::string response) {
-    std::cerr << "(info) Responding to query made on socket " << remote_fd << " with data...\n";
-    // std::cerr << "(debug) sending data..." << response << "\n###\n";
+    bool result = true;
+
+    std::cerr << out::info << "Responding to query made on socket " << remote_fd << " with data...\n";
+    std::cerr << out::debug << "sending data..." << response << "\n###\n";
     ssize_t length_left = response.length();
     ssize_t length_sent = 0;
     while (length_sent != response.length()) {
         int bytes_sent = send(remote_fd, response.c_str() + length_sent, length_left, 0);
         if (bytes_sent < 0) {
-            perror("send::respond()");
-            throw std::runtime_error(std::strerror(errno));
+            std::cerr << out::err << "Failed to respond to client socket: " << std::strerror(errno) << "\n";
+            result = false;
+            break;
         }
         length_sent += bytes_sent;
         length_left -= bytes_sent;
@@ -93,7 +98,7 @@ bool Server::respond(int remote_fd, std::string response) {
 
     const auto &remote = _remotes.at(remote_fd);
     _remotes.erase(remote_fd);
-    return true;
+    return result;
 }
 
 } // namespace ls

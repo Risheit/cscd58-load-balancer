@@ -1,11 +1,13 @@
 #pragma once
 
 #include <array>
+#include <iostream>
 #include <netinet/in.h>
 #include <optional>
 #include <string>
 #include <sys/socket.h>
 #include "FileDescriptor.hpp"
+#include "Log.hpp"
 
 namespace ls::sockets {
 constexpr int max_msg_chars = 8192;
@@ -25,11 +27,11 @@ using Socket = FileDescriptor;
         int len = recv(socket.fd(), received_raw.data(), sizeof(received_raw.data()), 0);
         if (len <= 0) { break; }
 
-        // std::cerr << "(debug) -- packet length " << len << ":\n " << received_raw.data() << "\n###\n";
+        std::cerr << out::debug << "packet length " << len << ":\n " << received_raw.data() << "\n###\n";
         received_str.append(received_raw.data(), len);
     };
 
-    // std::cerr << "(debug) received: \n" << received_str << "\n###\n";
+    std::cerr << out::debug << "received: \n" << received_str << "\n###\n";
     return received_str;
 }
 

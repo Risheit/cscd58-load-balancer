@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <string>
 #include "LoadBalancer.hpp"
+#include "Log.hpp"
 
 using namespace ls;
 using namespace std::chrono_literals;
@@ -29,14 +30,15 @@ void ensureControlledExit();
 struct SetupArgs {
     static SetupArgs getFlags(int argc, char **argv);
     inline static void printUsageMessage(char **argv) {
-        std::cerr << "Usage: " << argv[0]
-                  << " [-p | --port {port}] [-t | --stale {seconds}] [-r | --retries {amt}] [-c | --connections {amt}] "
-                     "[strategy] "
-                  << "{ ip_addr1   port1   weight1 } ... \n \n"
-                  << "Valid strategy types: \n"
-                  << "\t--robin: Starts the load balancer using a weighted round robin algorithm\n"
-                  << "\t--least: Starts the load balancer using a least connections algorithm\n"
-                  << "\t--random: Starts the load balancer randomly selecting connected servers\n";
+        std::cerr
+            << "Usage: " << argv[0]
+            << " [-p | --port PORT] [-t | --stale SECONDS] [-r | --retries RETRIES] [-c | --connections CONNECTIONS]"
+            << " [--log LEVEL] [strategy] "
+            << "{ ip_addr1   port1   weight1 } ... \n \n"
+            << "Valid strategy types: \n"
+            << "\t--robin: Starts the load balancer using a weighted round robin algorithm\n"
+            << "\t--least: Starts the load balancer using a least connections algorithm\n"
+            << "\t--random: Starts the load balancer randomly selecting connected servers\n";
     }
 
 public:
@@ -75,7 +77,7 @@ int main(int argc, char **argv) {
             metadata.weight = weight;
             lb.addConnections(forward_ip, forward_port, metadata);
         } catch (std::logic_error e) {
-            std::cerr << "(error) Given connection is malformed.\n";
+            std::cerr << out::err << "Given connection is malformed.\n";
             SetupArgs::printUsageMessage(argv);
             return 1;
         }
@@ -105,6 +107,13 @@ SetupArgs SetupArgs::getFlags(int argc, char **argv) {
         if (flag == "-h" || flag == "--help") {
             printUsageMessage(argv);
             exit(0);
+        } else if (flag == "-l" || flag == "--log") {
+            if (i + 1 >= argc) { throw std::invalid_argument{""}; }
+
+            out::level = std::stoi(argv[i + 1]);
+            if (out::level < 0) { throw std::invalid_argument{""}; }
+            args.starting_arg += 2;
+            i++;
         } else if (flag == "-p" || flag == "--port") {
             if (i + 1 >= argc) { throw std::invalid_argument{""}; }
 
@@ -157,7 +166,7 @@ void gotSignal(int) {
     // Never do real work inside this function.
     // See also: man 7 signal-safety
     if (panic) { exit(EXIT_FAILURE); }
-    std::cerr << "\n(info): Stopping gracefully... (Ctrl-C again will force exit)\n";
+    std::cerr << "\nStopping gracefully... (Ctrl-C again will force exit)\n";
     quit.store(true);
     panic.store(true);
 }

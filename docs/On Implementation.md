@@ -72,10 +72,26 @@ However, since its possible for servers that have been killed to be brought back
 > Implementation-wise, these "is-alive" transactions are stored and checked separately from other real transactions. 
 > `testServers` handles both creating these transactions and resolving them.
 
-## `FileDescriptor`
-
 ## `Server`
 
+The server class sets up a simple TCP server on a given port number. 
+
+The server is set up when it is constructed, creating a socket listening to a port.
+
+The process for using the server is:
+1. Call `Server::tryAcceptLatest`. This method will listen to the local server socket for `timeout` milliseconds, waiting for any connections. If a connection is found, the method returns the data that it has collected.
+This data is wrapped up in the struct `AcceptData`, and bundled with the number of the remote socket's file descriptor.
+   > [!IMPORTANT]
+   > The returned file descriptor is only a reference, and shouldn't be closed or reinitalized using a `FileDescriptor` or `Socket` class. Handling the socket connection for clients should remain the sole responsibility of the `Server` class.
+
+2. Perform any actions you need with the received request from the server.
+
+3. Using `Server::respond`, send back a string response to the socket's file descriptor. 
+   > [!IMPORTANT]
+   > This method also closes the socket connection, causing the held file descriptor number to become invalid.
+
 ## `TcpClient`
+
+
 
 ## `Mininet Scripts`

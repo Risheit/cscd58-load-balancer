@@ -1,3 +1,6 @@
+// A wrapper around a file descriptor integer. Follows RAII principles to automatically close any file descriptors that
+// move out of memory. The provided name exists to help with debugging.
+
 #pragma once
 
 #include <string>

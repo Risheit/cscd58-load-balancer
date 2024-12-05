@@ -74,7 +74,7 @@ However, since its possible for servers that have been killed to be brought back
 
 ## `Server`
 
-The server class sets up a simple TCP server on a given port number. 
+This class sets up a simple TCP server on a given port number. 
 
 The server is set up when it is constructed, creating a socket listening to a port.
 
@@ -92,6 +92,6 @@ This data is wrapped up in the struct `AcceptData`, and bundled with the number 
 
 ## `TcpClient`
 
+This class manages querying backend servers at a specific IP and port. 
 
-
-## `Mininet Scripts`
+On calling `TcpClient::query`, the class will create a socket connection to the address that it is set up for and query it for data. The class will timeout after 10 seconds if it cannot connect, and 60 seconds when reading data. The `query` function returns a string response containing data received from the remote connection, and nothing if the connection or reading process failed.

@@ -281,18 +281,24 @@ void LoadBalancer::startLeastConnections() {
 
         {
             std::shared_lock lock{_connections_mutex};
-            auto least_used_connection = std::ref(_connections.front());
+            auto lightest_connection = std::ref(_connections.front());
             for (auto &connection : _connections) {
                 if (connection.metadata.is_inactive) { continue; }
 
-                bool least_is_inactive = least_used_connection.get().metadata.is_inactive;
-                bool current_is_least =
-                    connection.ongoing_transactions < least_used_connection.get().ongoing_transactions;
-                if (least_is_inactive || current_is_least) { least_used_connection = std::ref(connection); }
+                auto transactions = connection.ongoing_transactions;
+                auto min_transactions = lightest_connection.get().ongoing_transactions;
+
+                bool lightest_inactive = lightest_connection.get().metadata.is_inactive;
+                bool connection_lightest = transactions < min_transactions;
+                bool same_amount_lowest_weight = transactions == min_transactions &&
+                    connection.metadata.weight > lightest_connection.get().metadata.weight;
+                if (lightest_inactive || connection_lightest || same_amount_lowest_weight) {
+                    lightest_connection = std::ref(connection);
+                }
             }
             lock.unlock();
 
-            createTransaction(least_used_connection, request, attempt_number);
+            createTransaction(lightest_connection, request, attempt_number);
         }
     }
 }

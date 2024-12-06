@@ -22,13 +22,13 @@ std::string messageHtml(std::string message) {
 std::string Request::construct() {
     std::string request;
 
-    const auto startLine =
-        method + " " + target + " HTTP/1.1\n" + "Host: " + host + "\nUser-Agent: loadbalancer/1.0.0\nAccept: */*";
+    const auto startLine = method + " " + target + " HTTP/1.1\r\n" + "Host: " + host +
+        "\r\nUser-Agent: loadbalancer/1.0.0\r\nAccept: */*\r\n";
     request.append(startLine);
 
     std::string headerString = "";
     for (auto [key, value] : headers) {
-        const auto header = key + ": " + value + "\n";
+        const auto header = key + ": " + value + "\r\n";
         headerString.append(header);
     }
 
@@ -37,7 +37,7 @@ std::string Request::construct() {
     if (body.has_value()) {
         const auto content_length = "Content-Length: " + std::to_string(body->length()) + "\n";
         request.append(content_length);
-        request.append("\n");
+        request.append("\r\n");
         request.append(*body);
     }
 

@@ -53,7 +53,29 @@ All of these functions follow the same general structure.
 3. Check for any failed transactions or new requests made to the load balancer, prioritizing theformer. If any are found, move on to the next step, otherwise return to step 1.
 4. Using whichever strategy is chosen, select the backing server to send the request to, and send therequest and create a transaction for it through the `LoadBalancer::createTransaction` method.
 
-For more details about strategies, please see the `docs/On Strategies.md`.
+The following load balancer strategies were implemented:
+
+### Weighted Round Robin
+
+Each backing server is assigned a postive integer weight. The load balancer will send requests to that server until the amount of requests sent is equal to the server's weight, then it will move on to the next server in its list, and cycle.
+
+For example:
+If server A has a weight of 2, and server B has a weight of 3, the load balancer will send the first two requests it receives to server A, then the next three to server B, then the next two to server A, and so on.
+
+### Least Connections
+
+The load balancer keeps track of the number of transactions that it has in progress with its backing servers, sending new requests to the server with the least current load.
+
+For example:
+If server A (with a weight of 3) has 3 in-progress transactions, server B (with a weight of 2) has 5, and server C (with a weight of 2) has 1.
+1. The first request the load balancer receives goes to server C.
+2. The second request will also go to server C.
+3. Since server A and server C are tied in requests, the load balancer will default to the server with the highest weight. In this case, server A.
+3. Say that 3 of server B's transactions complete. Then, server B has the fewest ongoing connections (2), and so the next request will go there.  
+
+### Random
+
+Backing servers are picked randomly and uniformly from the list.
 
 ## Testing Stale Servers
 

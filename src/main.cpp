@@ -30,15 +30,14 @@ void ensureControlledExit();
 struct SetupArgs {
     static SetupArgs getFlags(int argc, char **argv);
     inline static void printUsageMessage(char **argv) {
-        std::cerr
-            << "Usage: " << argv[0]
-            << " [-p | --port PORT] [-t | --stale SECONDS] [-r | --retries RETRIES] [-c | --connections CONNECTIONS]"
-            << " [--log LEVEL] [strategy] "
-            << "{ ip_addr1   port1   weight1 } ... \n \n"
-            << "Valid strategy types: \n"
-            << "\t--robin: Starts the load balancer using a weighted round robin algorithm\n"
-            << "\t--least: Starts the load balancer using a least connections algorithm\n"
-            << "\t--random: Starts the load balancer randomly selecting connected servers\n";
+        std::cerr << "Usage: " << argv[0]
+                  << " [-h | --help] [-p | --port PORT] [-t | --stale SECONDS] [-r | --retries RETRIES]"
+                  << " [-c | --connections CONNECTIONS] [--log LEVEL] [strategy] "
+                  << "{ ip_addr1   port1   weight1 } ... \n \n"
+                  << "Valid strategy types: \n"
+                  << "\t--robin: Starts the load balancer using a weighted round robin algorithm\n"
+                  << "\t--least: Starts the load balancer using a least connections algorithm\n"
+                  << "\t--random: Starts the load balancer randomly selecting connected servers\n";
     }
 
 public:

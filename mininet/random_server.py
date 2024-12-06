@@ -47,13 +47,15 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 from argparse import ArgumentParser, ArgumentTypeError
 from functools import partial
 from http.server import HTTPServer, BaseHTTPRequestHandler
+import random
 from time import sleep
 
 
 class S(BaseHTTPRequestHandler):
-    def __init__(self, delay, name, *args, **kwargs):
-        self.delay = delay
-        self.name = name
+    def __init__(self, cli_args, *args, **kwargs):
+        self.min_delay = cli_args.min
+        self.max_delay = cli_args.max
+        self.name = cli_args.name
         super().__init__(*args, **kwargs)
 
     def _set_headers(self):
@@ -66,7 +68,7 @@ class S(BaseHTTPRequestHandler):
         in the body. Override, or re-write this do do more interesting stuff.
 
         """
-        sleep(self.delay)
+        sleep(random.uniform(self.min_delay, self.max_delay))
         content = f"<html><body><h1>{message}</h1></body></html>\n"
         return content.encode("utf8")  # NOTE: must return a bytes object!
 
@@ -98,7 +100,7 @@ def check_clamped(min, max, value):
 
 if __name__ == "__main__":
 
-    parser = ArgumentParser(description="Run a simple HTTP server with a possible delay.")
+    parser = ArgumentParser(description="Run a simple HTTP server with a possible random delay from (min - max).")
     parser.add_argument(
         "-l",
         "--listen",
@@ -113,11 +115,18 @@ if __name__ == "__main__":
         help="Specify the port on which the server listens",
     )
     parser.add_argument(
-        "-d",
-        "--delay",
+        "-M",
+        "--max",
         type=partial(check_clamped, 0, 55),
         default=0,
-        help="Specify in seconds on how long the server takes to respond",
+        help="Specify in seconds the maximum time the server can take to respond.",
+    )
+    parser.add_argument(
+        "-m",
+        "--min",
+        type=partial(check_clamped, 0, 55),
+        default=0,
+        help="Specify in seconds the minimum time the server can take to respond.",
     )
     parser.add_argument(
         "name",
@@ -126,5 +135,5 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     
-    handler = partial(S, args.delay, args.name)
+    handler = partial(S, args)
     run(addr=args.listen, handler_class=handler, port=args.port)

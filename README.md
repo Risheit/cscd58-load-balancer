@@ -107,6 +107,26 @@ The server can handle GET, HEAD, and POST requests made to it, and responds with
 
 By default, the server opens at 0.0.0.0 on port 8000.
 
+### Random Webserver (`random_server.py`)
+```
+usage: random_server.py [-h] [-l LISTEN] [-p PORT] [-M MAX] [-m MIN] name
+
+Run a simple HTTP server with a possible random delay from (min - max).
+
+positional arguments:
+  name                  The name of this web server
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -l LISTEN, --listen LISTEN
+                        Specify the IP address on which the server listens
+  -p PORT, --port PORT  Specify the port on which the server listens
+  -M MAX, --max MAX     Specify in seconds the maximum time the server can take to respond.
+  -m MIN, --min MIN     Specify in seconds the minimum time the server can take to respond.
+```
+
+Identical to our standard webserver with one key difference. The random webserver takes in a minimum and maximum delay, and responds with a delay in [`min`, `max`] chosen randomly and uniformly.
+
 ### Basic Load Balancer (`basic_loadbalancer.py`)
 ```
 usage: basic_loadbalancer.py [-h] [-c CLIENTS] [-s SERVERS] [-d DELAY] [-r STRATEGY] [-t STALE] [--log LOG]

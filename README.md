@@ -84,6 +84,8 @@ The following mininet commands, located under the `./mininet/` directory, are Py
 python [filename]
 ```
 
+Run these files after compiling and building the load balancer executable, and from within the root `cscd58-load-balancer` directory, so that the scripts can correctly find the load balancer executable.
+
 ### Basic Webserver (`server.py`)
 ```
 usage: server.py [-h] [-l LISTEN] [-p PORT] [-d DELAY] name

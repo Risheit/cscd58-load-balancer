@@ -6,7 +6,7 @@ from mininet.node import Controller
 from mininet.cli import CLI
 from mininet.log import setLogLevel, info
 
-def simple_load_balancer(args):
+def basic_loadbalancer(args):
     """Create a topology with clients, servers, and a load balancer all connected up to a single switch.
 
     Args:
@@ -43,11 +43,11 @@ def simple_load_balancer(args):
     net.start()
 
 
-    info( f'*** Spinning up webservers on servers (h{args.clients + 1} - h{args.clients + args.servers}) \n')
+    info( '*** Spinning up webservers\n' )
     for server in servers:
         server.cmdPrint(f'python ./mininet/server.py -l 0.0.0.0 -p 80 -d {args.delay} {server.name} &')
 
-    info( f'*** Launching load balancer ({lb.name}) \n')
+    info( '*** Launching load balancer\n' )
     
     arg_list = []
     for server in servers:
@@ -56,7 +56,10 @@ def simple_load_balancer(args):
         arg_list.append('1')
     
     lb.cmdPrint(f'sudo ./build/bin/Load_Balancer --{args.strategy} -p 80 -c 30 --stale {args.stale} --log {args.log} ' + ' '.join(arg_list) + ' 2> logs.txt &')
-    
+
+    info( f'*** Load balancer is host {lb.name} \n')
+    info( f'*** Clients are on hosts h2 - h{args.clients + 1} \n')    
+    info( f'*** Webservers are on hosts h{args.clients + 2} - h{args.clients + args.servers + 1} \n')    
     info( '*** Running CLI\n' )
     CLI( net )
 
@@ -112,4 +115,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
     
     setLogLevel( 'info' )
-    simple_load_balancer(args)
+    basic_loadbalancer(args)

@@ -42,3 +42,6 @@ build
 
 # Logs
 *log*.txt
+
+# Python cache files
+__pycache__

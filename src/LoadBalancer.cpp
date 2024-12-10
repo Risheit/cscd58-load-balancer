@@ -7,7 +7,6 @@
 #include <iostream>
 #include <iterator>
 #include <mutex>
-#include <numeric>
 #include <shared_mutex>
 #include <stdexcept>
 #include <string>

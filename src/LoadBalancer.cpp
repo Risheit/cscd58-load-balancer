@@ -51,6 +51,9 @@ void LoadBalancer::use(Strategy strategy) {
 }
 
 void LoadBalancer::start() {
+    std::cerr << out::info << "Starting the load balancer: Stale timeout of "
+              << std::chrono::duration_cast<std::chrono::seconds>(_stale_timout).count() << " seconds, retrying "
+              << _retries << " times before giving up.\n";
     switch (_strategy) {
     case Strategy::WEIGHTED_ROUND_ROBIN: startWeightedRoundRobin(); break;
     case Strategy::LEAST_CONNECTIONS: startLeastConnections(); break;
@@ -164,7 +167,7 @@ void LoadBalancer::testServers() {
     }
 
     if (runs_testing) {
-        std::cerr << out::verb << std::boolalpha << "running standard check to test if servers are active...\n";
+        std::cerr << out::info << std::boolalpha << "running standard check to test if servers are active...\n";
     }
 
     for (auto &transaction : _personalTransactions) {

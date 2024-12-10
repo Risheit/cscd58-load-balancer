@@ -42,6 +42,7 @@ def test_loadbalancer(strategy, min_delays, max_delays, weights, num_clients = 1
     current = iter(switches)
     current_switch = next(current)
     for (i, host) in enumerate([lb] + clients + servers):
+        net.addLink(host, current_switch)
         if i != 0 and i % 20 == 0:
             try:
                 next_switch = next(current)
@@ -49,7 +50,6 @@ def test_loadbalancer(strategy, min_delays, max_delays, weights, num_clients = 1
                 continue
             net.addLink(current_switch, next_switch)
             current_switch = next_switch
-        net.addLink(host, current_switch)
 
     info( '*** Starting network\n' )
     net.start()
@@ -69,7 +69,7 @@ def test_loadbalancer(strategy, min_delays, max_delays, weights, num_clients = 1
 
     # Servers can't go down during testing, and chances that they so bogged down they get marked inactive are low.
     # However, we're not testing stale connections here, so set the stale timer really high to avoid any possible accidentals.
-    lb.cmdPrint(f'sudo ./build/bin/Load_Balancer --{strategy} -p 80 -c 30 --stale 9999 --log 4 ' + ' '.join(arg_list) + ' 2> logs.txt &')
+    lb.cmdPrint(f'sudo ./build/bin/Load_Balancer --{strategy} -p 80 -c 30 --stale 9999 --log 3 ' + ' '.join(arg_list) + ' 2> logs.txt &')
     
     sleep(2) # It takes a second for the servers and balancer to spin up in the background, and 
              # there's no good way for waiting until they're ready to accept connections, so just sleep for a few seconds

@@ -18,7 +18,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     
     setLogLevel( 'info' )
-    min_delays = [0] * 10
-    max_delays = [1] * 10
-    weights =    [1] * 10
-    test_loadbalancer(args.strategy, min_delays, max_delays, weights, 400, 10)
+    min_delays = [0] * 20
+    max_delays = [1] * 20
+    weights =    [1] * 20
+    test_loadbalancer(args.strategy, min_delays, max_delays, weights, 50, 20)

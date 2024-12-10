@@ -4,7 +4,7 @@ A simple implementation of a network load balancer like nginx or Cloudflare's CD
 
 This project is built for the UTSC course CSCD58 - Computer Networks.
 
-[Visit the GitHub repository here.](https://github.com/Risheit/cscd58-load-balancer)
+For better reading of these docs, [read them on the GitHub repository here.](https://github.com/Risheit/cscd58-load-balancer) Or install [the VSCode extension that displays Github markdown alerts.](https://marketplace.visualstudio.com/items?itemName=yahyabatulu.vscode-markdown-alert) 
 
 ## Goal
 The goal of this project is to learn more about designing and implementing a reverse proxy.
@@ -156,6 +156,9 @@ This begins a Mininet network that starts up a set of `c` clients, `h` servers r
 While here, run `link s1 hX down/up` to test the load balancer under different conditions.
 Query the load balancer from some client `hY` through `hY curl h1` or `hY curl 10.10.10.10`. 
 
+> [!NOTE]
+> A single switch topology in mininet is limited in the amount of hosts it can connect. Since testing here would have to be largely manual anyway, keep the number of clients and servers on a relatively smaller side.
+
 ### Tests (`test_[name].py`)
 These are different mininet configuration styles to test how different strategies function under different load conditions.
 
@@ -167,14 +170,12 @@ optional arguments:
 ```
 
 Provide a `strategy` and simulates congestion by running `curl` commands made to the balancer. 
-The file provides clients, hosts, weights. Each client makes 3 `curl` requests in parallel, and each client runs in parrallel.
-In finishes by printing the final out, containing the total, mean, and median times taken for each client.
 
-The available tests are:
-- `test_diff_delay_diff_weights`: Test a series of backing servers, with some servers 
+See more information on tests in `docs/Experimentations.md`. 
 
-## Further Documentation
-See more details on implementation and exploration under the `docs/` directory.
+## Further Implementation Details
+
+See information on implementation in `docs/On Implementation.md`.
 
 ## Features
 

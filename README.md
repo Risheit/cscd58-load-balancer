@@ -4,13 +4,13 @@ A simple implementation of a network load balancer like nginx or Cloudflare's CD
 
 This project is built for the UTSC course CSCD58 - Computer Networks.
 
-For better reading of these docs, [read them on the GitHub repository here.](https://github.com/Risheit/cscd58-load-balancer) Or install [the VSCode extension that displays Github markdown alerts.](https://marketplace.visualstudio.com/items?itemName=yahyabatulu.vscode-markdown-alert) 
+For better reading of these docs, [read them on the GitHub repository,](https://github.com/Risheit/cscd58-load-balancer) or install [the VSCode extension that displays Github markdown alerts.](https://marketplace.visualstudio.com/items?itemName=yahyabatulu.vscode-markdown-alert) 
 
 ## Goal
 The goal of this project is to learn more about designing and implementing a reverse proxy.
 I want to simulate a load balancer's affects on different network conditions, and test and compare 
 benchmarks for packet delays for a client when considering:
-- Different load balancer algorithms, liike round-robin, weighted round-robin or least-connections.
+- Different load balancer algorithms, like round-robin, weighted round-robin or least-connections.
 - What happens when underlying servers fail, and fallbacks and alternatives in those cases. 
 
 ### Team Members
@@ -18,15 +18,13 @@ Risheit Munshi
 
 
 ## Compiling and Running
-This project is written using CMake and C++17. and built to run on the [mininet 2.3.0 VM image](https://github.com/mininet/mininet/releases/tag/2.3.0). Mininet setup scripts and example web servers are written using Python.
+This project is written using CMake and C++17 and built to run on the [mininet 2.3.0 VM image](https://github.com/mininet/mininet/releases/tag/2.3.0). Mininet setup scripts and example web servers are written using Python 3.
 
-CMake is not installed by default on the Mininet VM releases. Please install it manually through:
+CMake is not installed by default on the Mininet VM releases. Please install it on the image by running:
 ```
 sudo apt update
 sudo apt install cmake 
 ```
-
-After installing, and moving to the `cscd58-load-balancer/` directory, make sure to run `git pull origin/main` to fetch the latest version of the repository.
 
 ### Loading the CMake project
 Before compilation, the CMake project needs to be loaded. Before beginning, make sure to `cd` to whichever directory you have cloned this repository to.
@@ -37,11 +35,11 @@ This step needs to be performed:
 
 The following command loads the CMake project, creating the necessary Makefiles to compile and writing to the `./build/` directory.
 ```
-cmake -S. -B./build -G "Unix Makefiles"
+cmake -S . -B ./build -G "Unix Makefiles"
 ```
 
 ### Compilation
-Compile the executable into the `./build/` directory after the project has been loaded or if any source files have been modified.
+Compile the executable into the `./build/bin` directory after the project has been loaded or if any source files have been modified. The name of the directory compiled to is important, as the Python scripts look for the executable in `./build/bin`.
 ```
 cmake --build build/
 ```
@@ -51,7 +49,12 @@ cmake --build build/
 The executable is run on the command line, and written into the `./build/bin/` directory. For quick reference on the flags and options you can pass in, pass in the `-h` or `--help` flag.
 
 ```
-./LoadBalancer [-p | --port {port}] [-t | --stale {seconds}] [-r | --retries {amt}] [-c | --connections {amt}] [--log LEVEL] [strategy] { ip_addr1   port1   weight1 } ...
+./LoadBalancer [-h | --help] [-p | --port PORT] [-t | --stale SECONDS] [-r | --retries RETRIES] [-c | --connections CONNECTIONS] [--log LEVEL] [strategy] { ip_addr1   port1   weight1 } ... 
+
+Valid strategy types: 
+	--robin: Starts the load balancer using a weighted round robin algorithm
+	--least: Starts the load balancer using a least connections algorithm
+	--random: Starts the load balancer randomly selecting connected servers
 ```
 
 The file takes in servers through command line arguments. For each server you want to the load balancer to listen to, provide:
@@ -68,18 +71,19 @@ For example, the following command would start the balancer redirecting requests
 ```
 
 The following flags exist on the load balancer. Flags need to be placed before the positional arguments to be valid.
+- `-h`, `--help` displays the help text.
 - `-p`, `--port` sets the port the load balancer starts on. The default port is `40192`.
 - `-t`, `--stale` sets the time period of inactivity that a server will go through before the load balancer sends an is alive request. By default, this is `30` seconds.
 - `-r`, `--retries` sets the amount of times a request to an underlying server that fails is retried on a different server. After this retry amount, an HTTP 503 error is sent back to the client. By default, this is retry amount is `3`.
 - `-c`, `--connections` sets the size of the connections backlog the local socket the balancer can handle. In the underlying code, it calls `listen(..., connections)` when starting the balancer server. By default, this is 5.
-- `--log` is a number that sets the log level of the balancer. The higher the log level, the more is shown, going from errors > warnings > info > verbose > debug. By default this is `3` (showing errors, warnings, and info logs).
+- `--log` is a number that sets the log level of the balancer. The higher the log level, the more is shown, going from errors (at `1`), warnings, info, verbose, debug (at `5`). By default this is `3` (showing errors, warnings, and info logs).
 - `--robin`, `--least`, `--random` set the strategy being used for load balancing. Only one of these can be present when calling the balancer. By default, this is `--robin`.
   - `--robin` starts the load balancer using a weighted round robin algorithm
   - `--least` starts the load balancer using a least connections algorithm
   - `--random` starts the load balancer randomly selecting connected servers
 
 ### Running the Mininet examples
-The following mininet commands, located under the `./mininet/` directory, are Python scripts. If you run into an issue running them directly, please make sure you have the necessary executable permissions on the file or call them through the python interpreter:
+The following mininet commands, located under the `./mininet/` directory, are Python scripts. If you run into an issue executing them directly, please make sure you have the necessary executable permissions on the file or call them through the python interpreter:
 ```
 python [filename]
 ```
@@ -127,7 +131,7 @@ optional arguments:
   -m MIN, --min MIN     Specify in seconds the minimum time the server can take to respond.
 ```
 
-Identical to our standard webserver with one key difference. The random webserver takes in a minimum and maximum delay, and responds with a delay in [`min`, `max`] chosen randomly and uniformly.
+Identical to our standard webserver with one key difference. The random webserver takes in a minimum and maximum delay, and responds with a random delay chosen uniformly within the range [`min`, `max`].
 
 ### Basic Load Balancer (`basic_loadbalancer.py`)
 ```
@@ -153,7 +157,7 @@ optional arguments:
 
 This begins a Mininet network that starts up a set of `c` clients, `h` servers running the `./mininet/server.py` server, and connects them all to a single switch. All these servers have the same weight of 1, and are named after their host name on Mininet: `hX`, where `X` is some number. 
 
-While here, run `link s1 hX down/up` to test the load balancer under different conditions.
+While here, run `link s1 hX down/up` to bring a link between a host and the switch down or up to test the load balancer under different conditions.
 Query the load balancer from some client `hY` through `hY curl h1` or `hY curl 10.10.10.10`. 
 
 > [!NOTE]

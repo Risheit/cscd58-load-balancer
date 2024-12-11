@@ -330,18 +330,12 @@ void LoadBalancer::startRandom() {
 
         if (!request.data.has_value()) { continue; }
 
-        // Indexes of elements from fill from 0 to size - 1;
-        std::vector<int> connections_indexes(_connections.size());
-        std::iota(connections_indexes.begin(), connections_indexes.end(), 0);
-        std::shuffle(connections_indexes.begin(), connections_indexes.end(), gen);
-
         {
             std::shared_lock lock{_connections_mutex};
-            auto connection = std::find_if(_connections.begin(), _connections.end(),
-                                           [](const Connection &c) { return !c.metadata.is_inactive; });
+            std::uniform_int_distribution<std::size_t> dist{0, _connections.size() - 1};
+            size_t indx = dist(gen);
             lock.unlock();
-
-            createTransaction(*connection, request, attempt_number);
+            createTransaction(_connections[indx], request);
         }
     }
 }

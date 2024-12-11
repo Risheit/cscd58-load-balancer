@@ -74,9 +74,9 @@ Corresponding to the script `test_same_delay_same_weights.py`.
 > [!NOTE]
 > For random selection, the number of clients was dropped down to 50, as running the test for 300 clients became (predictably) prohibitively slow.
 
-- Total time accumulated in waiting:  `1808.3903965950012`  seconds
-- Mean time for clients:  `36.16780793190002`  seconds
-- Median time for clients:  `10.556310534477234`  seconds
+- Total time accumulated in waiting:  `375.24923276901245`  seconds
+- Mean time for clients:  `7.504984655380249`  seconds
+- Median time for clients:  `3.500864863395691`  seconds
 
 ### Testing Different Server Delays and Same Server Weights
 
@@ -97,9 +97,9 @@ Corresponding to the script `test_same_delay_same_weights.py`.
 > [!NOTE]
 > For random selection, the number of clients was dropped down to 50, as running the test for 300 clients became (predictably) prohibitively slow.
 
-- Total time accumulated in waiting:  `1471.0547058582306`  seconds
-- Mean time for clients:  `29.42109411716461`  seconds
-- Median time for clients:  `11.504751205444336`  seconds
+- Total time accumulated in waiting:  `54383.14835643768`  seconds
+- Mean time for clients:  `1087.6629671287537`  seconds
+- Median time for clients:  `3.251208782196045`  seconds
 
 ### Testing Same Server Delays and Same Server Weights
 
@@ -120,9 +120,9 @@ Corresponding to the script `test_same_delay_same_weights.py`.
 > [!NOTE]
 > For random selection, the number of clients was dropped down to 50, as running the test for 300 clients became (predictably) prohibitively slow.
 
-- Total time accumulated in waiting:  `1728.7279238700867`  seconds
-- Mean time for clients:  `34.57455847740173`  seconds
-- Median time for clients:  `19.406450271606445`  seconds
+- Total time accumulated in waiting:  `343.4348337650299`  seconds
+- Mean time for clients:  `6.8686966753005985`  seconds
+- Median time for clients:  `1.8220511674880981`  seconds
 
 ## Analysis
 
@@ -132,10 +132,6 @@ Corresponding to the script `test_same_delay_same_weights.py`.
 > - The weights were assignmed manually by me when setting up the tests, When assigning those weights, I placed larger weights on servers with lower maximum delays, but the value for each weight was chosen somewhat arbitrarily. More accurate server weights, or server weights defined by the load balancer based on some algorithm are likely to perform better than the weights I defined here.
 
 A few interesting trends emerge when looking at the different load balancer strategies in each scenario.
-
-#### Random Selection
-
-There's not a lot to discuss about the random selection strategy. Predictably, it's easily the worst between the three strategies tested, with mean and median client times up to five times worse than the least connections (LC) or weighted round robin (WRR) strategies.
 
 #### Weighted Round Robin
 
@@ -159,6 +155,12 @@ I hypothesize a possible reason that these outliers might occur:
 due to random chance, a server with a greater expected delay finds itself having the current least connections. (Perhaps, due to random chance, it had a string of low delay responses, and cleared out its queue relatively quickly.) Once those new queries (likely from the same client) are routed to it, if that server has a string of high delay responses, it ends up greatly increasing the recorded delay of that client, causing the outlier clients that affect the mean result of the LC strategy.
 
 These outlier issues also likely exist in WRR (the mean time in each test is always higher than the median), but are far, far, less of a problem as requests from a single client are almost always guaranteed, at least partially based on server weights, to be distributed over different servers, reducing the likelihood that a single client will have to deal with multiple long delay requests.
+
+#### Random Selection
+
+There's not a lot to discuss about the random selection strategy. Predictably, it's easily the worst between the three strategies tested, with mean and median client times far worse than the least connections (LC) or weighted round robin (WRR) strategies, obvious even with the fewer client connections.
+
+Though, as an interesting note, when server delays are expected to be the same for each server, the median client delay isn't terribly slower than WRR or LC, though the algorithm randomly sending several client requests to the same server often create outlier clients, causing the mean to be consistently high. 
 
 ### Conclusions
 

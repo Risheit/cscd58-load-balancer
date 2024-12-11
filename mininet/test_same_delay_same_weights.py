@@ -21,4 +21,4 @@ if __name__ == '__main__':
     min_delays = [0] * 20
     max_delays = [1] * 20
     weights =    [1] * 20
-    test_loadbalancer(args.strategy, min_delays, max_delays, weights, 50, 20)
+    test_loadbalancer(args.strategy, min_delays, max_delays, weights, 300, 20)
